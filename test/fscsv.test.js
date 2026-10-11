@@ -1,7 +1,8 @@
 // Run: node --test test/
 // Fixtures named synthetic-* are made-up data, not real FamilySearch output.
-// test/package.json "main" points at this file so `node --test test/` works on
-// Node 21+, which executes a directory argument instead of searching inside it.
+// test/package.json "main" is test/run.js, which loads every *.test.js file.
+// That keeps `node --test test/` working on Node 21+, which executes a directory
+// argument instead of searching inside it.
 const test = require('node:test'), assert = require('node:assert'), fs = require('fs'), path = require('path');
 const { analyze, parseDate, extractPlace } = require('../lib/fscsv');
 const F = n => fs.readFileSync(path.join(__dirname, 'fixtures', n), 'utf8');

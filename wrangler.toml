@@ -1,0 +1,54 @@
+"$schema" = "node_modules/wrangler/config-schema.json"
+name = "temple-ordinance-map"
+main = "src/worker.js"
+compatibility_date = "2026-10-11"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Serve public/ (upload page, TV page, Natural Earth outlines).
+# API routes and the two HTML entry points run the Worker first.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+html_handling = "none"
+not_found_handling = "none"
+run_worker_first = ["/api/*", "/", "/tv", "/tv/"]
+
+# Replace database_id after: npx wrangler d1 create temple-ordinance-map
+# Leave this placeholder until then. Do not put a Cloudflare account id here.
+[[d1_databases]]
+binding = "DB"
+database_name = "temple-ordinance-map"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# One object paces Nominatim for the whole map.
+[[durable_objects.bindings]]
+name = "GEOCODER"
+class_name = "Geocoder"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Geocoder"]
+
+# GEOCODE_UA and RESET_TOKEN are secrets, not vars:
+#   npx wrangler secret put GEOCODE_UA
+#   npx wrangler secret put RESET_TOKEN
+
+# Subdomain on the rhionin.com zone (same Cloudflare account). A path on the
+# apex does not match this app's root routes (/ , /tv, /api). Uncomment after
+# the DNS zone is on the account you deploy with:
+# [[routes]]
+# pattern = "lights.rhionin.com"
+# custom_domain = true
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
