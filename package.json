@@ -1,0 +1,7 @@
+{
+  "name": "temple-ordinance-map",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  }
+}
