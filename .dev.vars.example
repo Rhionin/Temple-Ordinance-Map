@@ -1,0 +1,4 @@
+# Copy to .dev.vars for `wrangler dev`. .dev.vars is gitignored.
+# Nominatim requires a User-Agent that identifies the app and a contact.
+GEOCODE_UA=temple-ordinance-map/1.0 (you@example.com)
+RESET_TOKEN=replace-with-a-long-random-string

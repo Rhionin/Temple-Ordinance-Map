@@ -3,3 +3,5 @@ data/
 *.log
 *.real.csv
 test/fixtures/real-*.csv
+.wrangler/
+.dev.vars

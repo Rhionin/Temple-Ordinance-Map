@@ -18,11 +18,13 @@ const map=L.map('map',{zoomControl:false,worldCopyJump:true}).setView([25,0],2.4
 // Self-hosted Natural Earth countries (no tile provider / API key needed)
 fetch('/world.geojson').then(r=>r.json()).then(g=>L.geoJSON(g,{interactive:false,style:{color:'#6b3f8a',weight:.7,fillColor:'#1d1230',fillOpacity:1}}).addTo(map).bringToBack());
 map.attributionControl.addAttribution('Natural Earth');
-let n=0;const seen=new Set();
-function add(l,delay=0){const k=l.lat.toFixed(3)+','+l.lon.toFixed(3);n++;count.textContent=n;
+let n=0;const seen=new Set(); let since=0; const shown=new Set();
+function add(l,delay=0){const id=(l.created||0)+'|'+l.lat+'|'+l.lon+'|'+l.place; if(shown.has(id))return; shown.add(id);
+ const k=l.lat.toFixed(3)+','+l.lon.toFixed(3);n++;count.textContent=n;
  setTimeout(()=>{const j=(seen.has(k)?(Math.random()-.5)*.3:0);seen.add(k);
   const el=L.divIcon({className:'',html:`<div class="glow" style="animation-delay:0s,${(Math.random()*2).toFixed(2)}s"></div>`,iconSize:[14,14]});
   L.marker([l.lat+j,l.lon+j],{icon:el,interactive:false}).addTo(map);ticker.textContent='🕯️ '+l.place;},delay);}
-fetch('/api/lights').then(r=>r.json()).then(a=>{a.forEach((l,i)=>add(l,i*120));
- const es=new EventSource('/api/stream');es.onmessage=e=>add(JSON.parse(e.data));});
+async function poll(initial){try{const r=await fetch('/api/lights?since='+since,{cache:'no-store'}); const a=await r.json();
+ a.forEach((l,i)=>{if(l.created>since)since=l.created; add(l,initial?i*120:0);});}catch(e){}}
+poll(true); setInterval(()=>poll(false),2000);
 </script></body></html>
