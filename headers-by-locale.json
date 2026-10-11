@@ -1,0 +1,450 @@
+{
+ "ar": [
+  "شخص",
+  "رقم الهوية",
+  "حدث مؤهل",
+  "المراسيم",
+  "التاريخ",
+  "الهيكل"
+ ],
+ "bg": [
+  "Човек",
+  "Идентификационен номер",
+  "Събитие от живота, даващо право за обреди",
+  "Обреди",
+  "Дата",
+  "Храм"
+ ],
+ "bi": [
+  "Person",
+  "Id Number",
+  null,
+  "Ordinances",
+  "Date",
+  "Temple"
+ ],
+ "ceb": [
+  "Tawo",
+  "Numero sa Id",
+  "Makapasarang nga Hitabo [Qualifying Event]",
+  "Mga Ordinansa",
+  "Petsa",
+  "Templo"
+ ],
+ "cs": [
+  "Osoba",
+  "ID číslo",
+  "Kvalifikační událost",
+  "Obřady",
+  "Datum",
+  "Chrám"
+ ],
+ "da": [
+  "Person",
+  "ID-nummer",
+  "Kvalificeret begivenhed",
+  "Ordinancer",
+  "Dato",
+  "Tempel"
+ ],
+ "de": [
+  "Person",
+  "ID-Nummer",
+  "Erforderliches Ereignis",
+  "Heilige Handlungen",
+  "Datum",
+  "Tempel"
+ ],
+ "el": [
+  "Πρόσωπο",
+  "Αριθμός Ταυτότητας",
+  "Εγκεκριμένο Γεγονός",
+  "Διατάξεις",
+  "Ημερομηνία",
+  "Nαός"
+ ],
+ "eo": [
+  "[Þéŕšöñ----- П國カ내]",
+  "[Îð Ñûɱƀéŕ----------- П國カ내]",
+  "[Ǫûåļîƒýîñĝ Éṽéñţ--------- П國カ내]",
+  "[Öŕðîñåñçéš------------- П國カ내]",
+  "[Ðåţé- П國カ내]",
+  "[Ţéɱþļé----- П國カ내]"
+ ],
+ "es": [
+  "Persona",
+  "Número de identificación",
+  "Evento que reúne los requisitos",
+  "Ordenanzas",
+  "Fecha",
+  "Templo"
+ ],
+ "et": [
+  "Isik",
+  "ID-number",
+  "Kvalifitseeruv sündmus",
+  "Talitused",
+  "Kuupäev",
+  "Tempel"
+ ],
+ "fa": [
+  "شخص",
+  "شماره شناسایی",
+  "رویداد مقدماتی",
+  "آیین‌ها",
+  "تاریخ",
+  "معبد"
+ ],
+ "fi": [
+  "Henkilö",
+  "Tunnusnumero",
+  "Hyväksytty tapahtuma",
+  "Toimitukset",
+  "Päivämäärä",
+  "Temppeli"
+ ],
+ "fj": [
+  "Tamata",
+  "Naba ni Id",
+  "Na Veika e Yaco",
+  "Cakacaka Vakalotu",
+  "Tikinisiga",
+  "Valetabu"
+ ],
+ "fr": [
+  "Personne",
+  "Numéro d’identification",
+  "Événement autorisant les ordonnances",
+  "Ordonnances",
+  "Date",
+  "Temple"
+ ],
+ "gil": [
+  "Person",
+  "Id Number",
+  null,
+  "Ordinances",
+  "Date",
+  "Temple"
+ ],
+ "gn": [
+  "Tapicha",
+  "DI Número",
+  "Evento kalifikasiõ rehegua",
+  "Ordenansakuéra",
+  "Ára",
+  "Templo"
+ ],
+ "hr": [
+  "Osoba",
+  "Id broj",
+  "Osposobljavajući događaj",
+  "Uredbe",
+  "Datum",
+  "Hram"
+ ],
+ "ht": [
+  "Moun",
+  "Nimewo Idantifikasyon",
+  "Evènman ki kalifye",
+  "Òdonans",
+  "Dat",
+  "Tanp"
+ ],
+ "hu": [
+  "Személy",
+  "Azonosítószám",
+  "Jogosultságot biztosító esemény",
+  "szertartások",
+  "Dátum",
+  "Templom"
+ ],
+ "hy": [
+  "Անձը",
+  "Նույնականացման համարը",
+  "Որակավորման իրադարձություն",
+  "Արարողություններ",
+  "Ամսաթիվ",
+  "Տաճար"
+ ],
+ "id": [
+  "Orang",
+  "Nomor Identitas",
+  "Peristiwa untuk Memenuhi Syarat",
+  "Tata Cara",
+  "Tanggal",
+  "Bait Suci"
+ ],
+ "is": [
+  "Einstaklingur",
+  "Auðkennisnúmer",
+  "Tímamótaatburður",
+  "Helgiathafnir",
+  "Dags.",
+  "Musteri"
+ ],
+ "it": [
+  "Persona",
+  "Codice identificativo",
+  "Evento qualificante",
+  "Ordinanze",
+  "Data",
+  "Tempio"
+ ],
+ "ja": [
+  "個人",
+  "ID番号",
+  "儀式を行うために必要な出来事",
+  "儀式",
+  "日付",
+  "神殿"
+ ],
+ "ka": [
+  "პიროვნება",
+  "საიდენტიფიკაციო ნომერი",
+  "კვალიფიცირების ღონისძიება",
+  "წეს-ჩვეულებანი",
+  "თარიღი",
+  "ტაძარი"
+ ],
+ "km": [
+  "បុគ្គល",
+  "អត្តលេខ",
+  "ព្រឹត្តិការណ៍​ដែល​មាន​លក្ខណៈ​គ្រប់គ្រាន់",
+  "ពិធីបរិសុទ្ធ​",
+  "កាលបរិច្ឆេទ",
+  "ព្រះវិហារ​បរិសុទ្ធ"
+ ],
+ "ko": [
+  "개인",
+  "개인별 번호(ID)",
+  "해당하는 생애 사건",
+  "의식",
+  "날짜",
+  "성전"
+ ],
+ "lt": [
+  "Asmuo",
+  "ID numeris",
+  "Apibūdinantis įvykis",
+  "Apeigos",
+  "Data",
+  "Šventykla"
+ ],
+ "lv": [
+  "Persona",
+  "ID numurs",
+  "Noteicošais notikums",
+  "Priekšraksti",
+  "Datums",
+  "Templis"
+ ],
+ "mg": [
+  "Olona",
+  "Laharam-pamantarana",
+  "Trangam-piainana mameno fepetra",
+  "Ôrdônansy",
+  "Daty",
+  "Tempoly"
+ ],
+ "mk": [
+  "Лице",
+  "Матичен Број",
+  "Настан за Крунисување",
+  "Обреди",
+  "Датум",
+  "Храм"
+ ],
+ "mn": [
+  "Хувь хүн",
+  "ID дугаар",
+  "Шаардлагатай амьдралын үйл явдал",
+  "Ёслолууд",
+  "Огноо",
+  "Ариун сүм"
+ ],
+ "ms": [
+  "Orang",
+  "Nombor Pengenalan",
+  "Acara Yang Layak",
+  "Tatacara-tatacara",
+  "Tarikh",
+  "Bait Suci"
+ ],
+ "nl": [
+  "Persoon",
+  "ID-nummer",
+  "Kwalificerende gebeurtenis",
+  "Verordeningen",
+  "Datum",
+  "Tempel"
+ ],
+ "no": [
+  "Person",
+  "ID-nummer",
+  "Kvalifiserende hendelse",
+  "Ordinanser",
+  "Dato",
+  "Tempel"
+ ],
+ "pl": [
+  "Osoba",
+  "Numer Id",
+  "Wydarzenie kwalifikujące",
+  "Obrzędy",
+  "Data",
+  "Świątynia"
+ ],
+ "pt": [
+  "Pessoa",
+  "Nº de ID",
+  "Evento de qualificação",
+  "Ordenanças",
+  "Data",
+  "Templo"
+ ],
+ "ro": [
+  "Persoană",
+  "ID",
+  "Eveniment care întrunește cerințele",
+  "Rânduieli",
+  "Dată",
+  "Templu"
+ ],
+ "ru": [
+  "Человек",
+  "Номер ID",
+  "Ключевое событие",
+  "Таинства",
+  "Дата",
+  "Храм"
+ ],
+ "sk": [
+  "Osoba",
+  "ID číslo",
+  "Uspôsobujúca udalosť",
+  "Obrady",
+  "Dátum",
+  "Chrám"
+ ],
+ "sl": [
+  "Oseba",
+  "Številka ID",
+  "Določen dogodek",
+  "Uredbe",
+  "Datum",
+  "Tempelj"
+ ],
+ "sm": [
+  "Tagata",
+  "Numera Faailo",
+  "Mea e Tutupu e Agavaa ai",
+  "Sauniga",
+  "Aso",
+  "Malumalu "
+ ],
+ "sq": [
+  "Personi",
+  "Numri i Identifikimit",
+  "Ngjarje Kualifikuese",
+  "Ordinancat",
+  "Data",
+  "Tempulli"
+ ],
+ "sr": [
+  "Особа",
+  "Идентификациони број",
+  "Квалификовање догађаја",
+  "Обреди",
+  "Датум",
+  "Храм"
+ ],
+ "sv": [
+  "Person",
+  "Id-nummer",
+  "Kvalificerande händelse",
+  "Förrättningar",
+  "Datum",
+  "Templet"
+ ],
+ "sw": [
+  "Mtu",
+  "Namba ya Id",
+  "Tukio Linalofaa",
+  "Ibada",
+  "Tarehe",
+  "Hekalu"
+ ],
+ "th": [
+  "บุคคล",
+  "หมายเลขประจำตัว",
+  "เหตุการณ์ที่ต้องมีตามข้อกำหนด",
+  "ศาสนพิธี",
+  "วันเดือนปี",
+  "พระวิหาร"
+ ],
+ "tl": [
+  "Tao",
+  "Id Number",
+  "Qualifying Event",
+  "Mga Ordenansa",
+  "Petsa",
+  "Templo"
+ ],
+ "to": [
+  "Tokotaha",
+  "Fika Id",
+  "Qualifying Event",
+  "Ngaahi Ouaú",
+  "ʻAhó",
+  "Temipale"
+ ],
+ "tr": [
+  "Kişi",
+  "Kimlik Numarası",
+  "Yeterlilik Etkinliği",
+  "Kutsal Törenler",
+  "Tarih",
+  "Tapınak"
+ ],
+ "uk": [
+  "Особа",
+  "Ідентифікаційний номер",
+  "Необхідна подія",
+  "Обряди",
+  "Дата",
+  "Храм"
+ ],
+ "vi": [
+  "Người",
+  "Số Nhận Dạng Cá Nhân",
+  "Sự Kiện Đủ Điều Kiện",
+  "Các giáo lễ",
+  "Ngày",
+  "Đền thờ"
+ ],
+ "zh-hans": [
+  "个人",
+  "个人识别码",
+  "符合资格的事项",
+  "教仪",
+  "日期",
+  "圣殿"
+ ],
+ "zh": [
+  "個人",
+  "個人識別碼",
+  "符合資格的事項",
+  "教儀",
+  "日期",
+  "聖殿"
+ ],
+ "en": [
+  "Person",
+  "Id Number",
+  "Qualifying Event",
+  "Ordinances",
+  "Date",
+  "Temple"
+ ]
+}

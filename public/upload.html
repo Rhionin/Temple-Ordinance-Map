@@ -1,0 +1,52 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Light a candle 🕯️</title><style>
+body{margin:0;font-family:system-ui,sans-serif;background:#120a1c;color:#f6e7d0;display:flex;justify-content:center}
+main{max-width:460px;padding:24px 18px 40px}h1{color:#ffa31a;font-size:1.6em;margin:.2em 0;text-shadow:0 0 12px #ff7a00}
+a{color:#ffc04d}.step{background:#21132e;border:1px solid #5a2d6e;border-radius:16px;padding:16px 16px 14px;margin:14px 0;position:relative}
+.n{position:absolute;top:-12px;left:-6px;width:34px;height:34px;border-radius:50%;background:#ff9a1a;color:#2a0f00;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:1.1em;box-shadow:0 0 12px #ff7a00}
+.step h2{margin:0 0 6px 22px;font-size:1.15em;color:#ffd08a}.step p,.step li{line-height:1.45;margin:.35em 0}
+.btn{display:block;text-align:center;background:linear-gradient(#ffb33a,#f07d00);color:#2a0f00;font-weight:700;padding:15px;border-radius:12px;font-size:1.05em;text-decoration:none;border:0;width:100%;box-sizing:border-box;cursor:pointer;margin:8px 0}
+.url{display:flex;gap:6px;margin-top:6px}.url input{flex:1;min-width:0;background:#0d0716;color:#ffd08a;border:1px solid #5a2d6e;border-radius:10px;padding:10px;font-size:.9em}
+.url button{background:#5a2d6e;color:#fff;border:0;border-radius:10px;padding:0 14px;font-weight:600}
+details{margin-top:8px;color:#d9c6e6}summary{cursor:pointer;color:#ffc04d}input[type=file]{display:none}
+#msg{margin-top:10px;min-height:1.4em;font-size:1.05em}.muted{color:#b9a3c9;font-size:.88em}.tabs{font-size:.85em;color:#b9a3c9;text-align:right}
+.tabs a{margin-left:6px}
+</style></head><body><main>
+<h1>🌼 Light a candle for your ancestors</h1>
+<p>Every ancestor whose temple work was finished this past year becomes a glowing light on the big screen. It takes about a minute!</p>
+<div class="tabs">Showing steps for <b id="osname"></b> · <a href="#" data-os="ios">iPhone</a><a href="#" data-os="android">Android</a></div>
+
+<div class="step"><div class="n">1</div><h2>Open your Completed list in the browser</h2>
+<a class="btn" id="open" href="https://www.familysearch.org/en/temple/completed/" target="_blank" rel="noopener">🌐 Open Completed list</a>
+<div class="url"><input id="u" readonly value="https://www.familysearch.org/en/temple/completed/"><button id="cp">Copy</button></div>
+<p class="os ios">If the <b>FamilySearch app</b> opens instead: tap <b>Copy</b>, open <b>Safari</b>, paste into the address bar and tap <b>Go</b>.</p>
+<p class="os android">If the <b>FamilySearch app</b> opens instead: press and hold the orange button and pick <b>Open in new tab</b> — or tap <b>Copy</b>, open <b>Chrome</b>, and paste into the address bar.</p>
+<details class="os ios"><summary>Still opening the app?</summary><p>Press and hold the orange button. If you see <b>Open in Safari</b>, tap it — your iPhone will remember that choice for familysearch.org.</p></details>
+<details class="os android"><summary>Still opening the app?</summary><p>Try a Chrome <b>New Incognito tab</b> (⋮ menu) and paste the link. Or: Settings › Apps › FamilySearch Tree › <b>Open by default</b> › turn off <b>Open supported links</b> (you can turn it back on later).</p></details>
+</div>
+
+<div class="step"><div class="n">2</div><h2>Sign in and tap “Download List”</h2>
+<p class="os ios">Don’t see the button? Tap <b>aA</b> (or the ••• menu) in the address bar › <b>Request Desktop Website</b>. When asked, tap <b>Download</b>.</p>
+<p class="os android">Don’t see the button? Tap <b>⋮</b> › check <b>Desktop site</b>. Then tap <b>Download</b> if asked.</p>
+</div>
+
+<div class="step"><div class="n">3</div><h2>Come back here and pick the file</h2>
+<label class="btn">📄 Choose my list<input type="file" id="csv" accept=".csv,text/csv,text/plain,.txt,text/comma-separated-values,application/vnd.ms-excel"></label>
+<p class="os ios muted">Tap <b>Browse</b> › <b>Downloads</b> (or look in <b>Recents</b>). The file may be called something like “completed.csv” or end in “(1)” — that’s fine.</p>
+<p class="os android muted">Look in <b>Downloads</b> (or <b>Recent</b>). Any name ending in .csv or .txt works.</p>
+<div id="msg"></div></div>
+
+<p class="muted">Privacy: we keep only each person’s FamilySearch ID (so nobody’s counted twice), the place, and the ordinance type. Names are never stored or shown. The screen shows place lights only.</p>
+</main><script>
+const ua=navigator.userAgent, isIOS=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+function setOS(os){document.querySelectorAll('.os').forEach(e=>e.style.display=e.classList.contains(os)?'':'none');osname.textContent=os=='ios'?'iPhone':'Android';}
+setOS(new URLSearchParams(location.search).get('os')||(isIOS?'ios':'android'));
+document.querySelectorAll('[data-os]').forEach(a=>a.onclick=e=>{e.preventDefault();setOS(a.dataset.os)});
+cp.onclick=async()=>{try{await navigator.clipboard.writeText(u.value)}catch{u.select();document.execCommand('copy')}cp.textContent='Copied!';setTimeout(()=>cp.textContent='Copy',2000)};
+csv.onchange=async()=>{const f=csv.files[0];if(!f)return;const t=await f.text();
+ if(!/(^|[",;\t])[A-Z0-9]{4}-[A-Z0-9]{2,4}([",;\t]|$)/m.test(t.slice(0,3000))){msg.textContent='🤔 That doesn’t look like the Completed list. Try the file from step 2.';return}
+ msg.textContent='✨ Lighting candles… (about a second per place)';
+ try{const r=await fetch('/api/upload',{method:'POST',body:t});const s=await r.json();if(s.error)throw new Error(s.error);
+ msg.innerHTML=`🕯️ <b>${s.added}</b> new lights from this past year`+(s.duplicate?` (${s.duplicate} already glowing)`:'')+'. Look at the screen!';}
+ catch(e){msg.textContent='Sorry, something went wrong: '+e.message}};
+</script></body></html>

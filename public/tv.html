@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Temple Ordinance Lights</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>html,body,#map{margin:0;height:100%;background:#07040c;font-family:Georgia,serif}
+.leaflet-container{background:#07040c}
+#hud{position:fixed;top:24px;left:32px;z-index:999;color:#ffd08a;text-shadow:0 0 14px #ff7a00}
+#hud h1{margin:0;font-size:42px;color:#ffa31a}#count{font-size:72px;font-weight:bold;color:#fff3d6}
+#ticker{position:fixed;bottom:0;left:0;right:0;z-index:999;padding:14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
+.glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(#fff8e0 0,#ffcf4d 30%,#ff8a00 60%,transparent 72%);
+box-shadow:0 0 12px 5px #ff9a1a99,0 0 30px 12px #ff6a0055;animation:pop 1.6s ease-out,flick 2.4s infinite alternate}
+@keyframes pop{0%{transform:scale(6);opacity:0}60%{transform:scale(1.6);opacity:1}100%{transform:scale(1)}}
+@keyframes flick{0%{opacity:.75}25%{opacity:1}50%{opacity:.85}70%{opacity:.98}100%{opacity:.8}}
+.leaflet-control-attribution{background:#0008!important;color:#776!important}.leaflet-control-attribution a{color:#998!important}
+</style></head><body><div id="map"></div>
+<div id="hud"><h1>🌼 Nuestros Antepasados 🌼</h1><div><span id="count">0</span> <span style="font-size:28px">lights of temple work this year</span></div></div>
+<div id="ticker">&nbsp;</div>
+<script>
+const map=L.map('map',{zoomControl:false,worldCopyJump:true}).setView([25,0],2.4);
+// Self-hosted Natural Earth countries (no tile provider / API key needed)
+fetch('/world.geojson').then(r=>r.json()).then(g=>L.geoJSON(g,{interactive:false,style:{color:'#6b3f8a',weight:.7,fillColor:'#1d1230',fillOpacity:1}}).addTo(map).bringToBack());
+map.attributionControl.addAttribution('Natural Earth');
+let n=0;const seen=new Set();
+function add(l,delay=0){const k=l.lat.toFixed(3)+','+l.lon.toFixed(3);n++;count.textContent=n;
+ setTimeout(()=>{const j=(seen.has(k)?(Math.random()-.5)*.3:0);seen.add(k);
+  const el=L.divIcon({className:'',html:`<div class="glow" style="animation-delay:0s,${(Math.random()*2).toFixed(2)}s"></div>`,iconSize:[14,14]});
+  L.marker([l.lat+j,l.lon+j],{icon:el,interactive:false}).addTo(map);ticker.textContent='🕯️ '+l.place;},delay);}
+fetch('/api/lights').then(r=>r.json()).then(a=>{a.forEach((l,i)=>add(l,i*120));
+ const es=new EventSource('/api/stream');es.onmessage=e=>add(JSON.parse(e.data));});
+</script></body></html>
