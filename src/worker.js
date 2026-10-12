@@ -45,6 +45,7 @@ export default {
       }));
     }
     if (url.pathname === '/new') return assetPage(request, env, '/new.html');
+    if (url.pathname === '/admin') return assetPage(request, env, '/super-admin.html');
     const groupPath = url.pathname.match(/^\/g\/([^/]+)(\/map|\/admin)?\/?$/);
     if (groupPath) {
       const group = await groups.find(groupSlug(groupPath[1]));

@@ -68,6 +68,18 @@ export function directory(db) {
       await db.prepare('UPDATE groups SET deleted = 1 WHERE id = ?').bind(current.id).run();
       return true;
     },
+    async list() {
+      const rows = await db.prepare(
+        'SELECT slug, title, disabled, deleted, created FROM groups ORDER BY created DESC, slug'
+      ).all();
+      return rows.results || [];
+    },
+    async setDisabled(slug, disabled) {
+      const current = await this.find(slug);
+      if (!current) return null;
+      await db.prepare('UPDATE groups SET disabled = ? WHERE id = ?').bind(disabled ? 1 : 0, current.id).run();
+      return this.find(slug);
+    },
     async replaceToken(slug, tokenHash) {
       const current = await this.find(slug);
       if (!current || Number(current.deleted) || Number(current.disabled)) return false;

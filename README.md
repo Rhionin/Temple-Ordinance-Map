@@ -31,7 +31,7 @@ The TV page also has a faint reset control in the top-right corner. It appears w
 
 ## Deploy on Cloudflare
 
-The Worker serves `public/` as static assets, stores lights in D1, and paces Nominatim through one Durable Object so a multi-row upload stays at or under one request per second. Lights show up on the map as each place resolves. The hostname is `temple-ordinance-map.rhionin.com` (`custom_domain = true` in `wrangler.toml`). `/` is the master map. A group lives at `/g/<slug>` and `/g/<slug>/map`.
+The Worker serves `public/` as static assets, stores lights in D1, and paces Nominatim through one Durable Object so a multi-row upload stays at or under one request per second. Lights show up on the map as each place resolves. The hostname is `temple-ordinance-map.rhionin.com` (`custom_domain = true` in `wrangler.toml`). `/` is the master map. `/new` starts a group. A group lives at `/g/<slug>`, `/g/<slug>/map`, and `/g/<slug>/admin`. `/admin` lists every group after PIN `1337`.
 
 `wrangler.toml` already names the worker `temple-ordinance-map`, the D1 database `temple-ordinance-map` (`database_id` `3ac5318c-7b9f-45d5-a5d0-862076f3e4b2`), and the SQLite Durable Object class `Geocoder` (migration tag `v1`). Do not commit an account id. `GEOCODE_UA` is a `[vars]` value. `RESET_TOKEN` stays a secret and is not set by deploys.
 

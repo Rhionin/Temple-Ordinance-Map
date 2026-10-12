@@ -1,0 +1,78 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Super-admin</title><style>
+body{margin:0;font-family:system-ui,sans-serif;background:#120a1c;color:#f6e7d0;display:flex;justify-content:center}
+main{max-width:640px;width:100%;padding:24px 18px 48px}h1{color:#ffa31a;font-size:1.6em;margin:.2em 0}
+label{display:block;margin:14px 0 6px;color:#ffd08a}input{width:100%;box-sizing:border-box;background:#0d0716;color:#ffd08a;border:1px solid #5a2d6e;border-radius:10px;padding:12px;font-size:1em}
+button{background:linear-gradient(#ffb33a,#f07d00);color:#2a0f00;font-weight:700;padding:10px 14px;border-radius:10px;border:0;cursor:pointer}
+button.quiet{background:#21132e;color:#ffd08a;border:1px solid #5a2d6e}
+#msg{margin-top:12px;min-height:1.4em}.error{color:#ffd2cc}
+table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px 6px;border-top:1px solid #5a2d6e;vertical-align:top}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.muted{color:#b9a3c9;font-size:.9em}
+</style></head><body><main>
+<h1>Super-admin</h1>
+<form id="gate">
+  <label for="pin">PIN</label>
+  <input id="pin" type="password" autocomplete="off">
+  <button type="submit">Open</button>
+</form>
+<p id="msg" role="status" aria-live="polite"></p>
+<table id="list" hidden></table>
+</main><script>
+const KEY='tom-super-pin';
+const msg=document.getElementById('msg');
+const list=document.getElementById('list');
+const gate=document.getElementById('gate');
+const pin=document.getElementById('pin');
+function note(text, bad){ msg.className=bad?'error':''; msg.textContent=text||''; }
+function headers(){
+  return { 'x-admin-pin': sessionStorage.getItem(KEY)||'', 'content-type':'application/json' };
+}
+async function load(){
+  const response=await fetch('/api/admin/groups',{headers:headers(), cache:'no-store'});
+  if(response.status===401){ note('That PIN is not right.', true); list.hidden=true; return; }
+  const rows=await response.json();
+  list.hidden=false;
+  gate.hidden=true;
+  note('');
+  list.innerHTML='';
+  for(const row of rows){
+    const tr=document.createElement('tr');
+    const name=document.createElement('td');
+    name.innerHTML='<b></b><div class="muted"></div>';
+    name.querySelector('b').textContent=row.title||row.slug;
+    const flags=[];
+    if(row.disabled) flags.push('disabled');
+    if(row.deleted) flags.push('deleted');
+    name.querySelector('.muted').textContent=row.slug+(flags.length?' · '+flags.join(', '):'');
+    const actions=document.createElement('td');
+    actions.className='actions';
+    const toggle=document.createElement('button');
+    toggle.type='button';
+    toggle.className='quiet';
+    toggle.textContent=row.disabled?'Enable':'Disable';
+    toggle.onclick=()=>act(row.slug, row.disabled?'enable':'disable');
+    const remove=document.createElement('button');
+    remove.type='button';
+    remove.className='quiet';
+    remove.textContent='Delete';
+    remove.disabled=!!row.deleted;
+    remove.onclick=()=>act(row.slug, 'delete');
+    actions.append(toggle, remove);
+    tr.append(name, actions);
+    list.append(tr);
+  }
+  if(!rows.length) note('No groups yet.');
+}
+async function act(slug, action){
+  const response=await fetch('/api/admin/groups/'+encodeURIComponent(slug)+'/'+action,{method:'POST',headers:headers()});
+  if(!response.ok){ note('Could not update '+slug+'.', true); return; }
+  await load();
+}
+gate.onsubmit=async(event)=>{
+  event.preventDefault();
+  sessionStorage.setItem(KEY, pin.value);
+  await load();
+};
+if(sessionStorage.getItem(KEY)) load();
+</script></body></html>

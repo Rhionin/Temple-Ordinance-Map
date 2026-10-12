@@ -20,7 +20,7 @@ test('the upload page, the TV page, and the lights API send hardening headers', 
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   try {
-    for (const path of ['/', '/new', '/api/lights']) {
+    for (const path of ['/', '/new', '/admin', '/api/lights']) {
       const response = await fetch('http://127.0.0.1:' + port + path);
       assert.equal(response.status, 200);
       expectHardened(response.headers);

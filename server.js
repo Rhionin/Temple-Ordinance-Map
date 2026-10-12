@@ -361,6 +361,21 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', script)));
   }
+  if (url.pathname === '/admin' || url.pathname.startsWith('/api/admin/')) {
+    if (url.pathname === '/admin') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      return res.end(fs.readFileSync(path.join(__dirname, 'public', 'super-admin.html')));
+    }
+    const init = { method: req.method, headers: req.headers };
+    if (req.method !== 'GET' && req.method !== 'HEAD') init.body = await readBody(req);
+    const request = new Request(url, init);
+    return send(res, await handleApi(request, {
+      store: master,
+      groups,
+      resetToken: process.env.RESET_TOKEN || '',
+      resetPin: process.env.RESET_PIN || '1337',
+    }));
+  }
   if (url.pathname === '/new') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', 'new.html')));
