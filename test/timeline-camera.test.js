@@ -44,7 +44,9 @@ test('the timeline page expands the camera and still flies in spotlight', () => 
   assert.match(tv, /timelineWide = true/);
   assert.match(tv, /ancestorLabel/);
   assert.doesNotMatch(tv, /focusLights/);
-  assert.match(tv, /map\.flyTo\(focusOf\(step\.light\), SPOT_ZOOM/);
+  assert.match(tv, /flyToBounds\(lightBounds\(focusOf\(step\.light\)\)/);
+  assert.match(tv, /maxZoom: SPOT_ZOOM/);
+  assert.match(tv, /zoomOutOnly/);
   assert.match(tv, /paintCountriesDuringMove/);
   assert.match(tv, /showCard\(entry\.light/);
   const reveal = tv.slice(tv.indexOf('function revealLight'), tv.indexOf('function revealMissed'));

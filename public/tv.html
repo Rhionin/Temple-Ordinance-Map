@@ -4,13 +4,14 @@
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#07040c;font-family:Georgia,serif}
 #stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform:translate(-50%,-50%) rotate(var(--turn,0deg)) scale(var(--fit,1));transform-origin:center center;background:#07040c}
-#map{position:absolute;inset:0;width:1920px;height:1080px;background:#07040c;visibility:hidden}
+#map{position:absolute;left:0;top:0;width:var(--map-w,1420px);height:1080px;background:#07040c;visibility:hidden}
+#rail{position:absolute;top:0;right:0;width:var(--rail,500px);height:1080px;z-index:1000;background:#07040c;border-left:1px solid rgba(255,196,120,.28);pointer-events:none}
 .leaflet-container{background:#07040c}
 .leaflet-div-icon,.candle-icon{background:transparent;border:none}
 #hud{position:fixed;top:24px;left:32px;z-index:999;max-width:980px;color:#ffd08a;text-shadow:0 0 14px #ff7a00}
 #hud h1{margin:0;font-size:42px;color:#ffa31a}#count{font-size:72px;font-weight:bold;color:#fff3d6}
 #count-label{font-size:28px}
-#ticker{position:fixed;bottom:0;left:0;right:0;z-index:999;padding:14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
+#ticker{position:fixed;bottom:0;left:0;right:var(--rail,500px);z-index:999;padding:14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
 .glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(#fff8e0 0,#ffcf4d 30%,#ff8a00 60%,transparent 72%);
 box-shadow:0 0 12px 5px #ff9a1a99,0 0 30px 12px #ff6a0055;animation:pop 1.6s ease-out,flick 2.4s infinite alternate}
 .glow.bloom{filter:brightness(1.45);box-shadow:0 0 22px 14px #fff3c8ee,0 0 60px 28px #ffb000cc}
@@ -18,12 +19,12 @@ box-shadow:0 0 12px 5px #ff9a1a99,0 0 30px 12px #ff6a0055;animation:pop 1.6s eas
 @keyframes pop{0%{transform:scale(6);opacity:0}60%{transform:scale(1.6);opacity:1}100%{transform:scale(1)}}
 @keyframes flick{0%{opacity:.75}25%{opacity:1}50%{opacity:.85}70%{opacity:.98}100%{opacity:.8}}
 @keyframes fadeout{to{opacity:0;filter:brightness(.4)}}
-#timeline{position:fixed;left:0;right:0;bottom:0;z-index:1002;padding:8px 6% 28px;text-align:center;pointer-events:none;
+#timeline{position:fixed;left:0;right:var(--rail,500px);bottom:0;z-index:1002;padding:8px 6% 28px;text-align:center;pointer-events:none;
 background:linear-gradient(transparent,#07040cf2)}
 #month-label{margin:0;font-size:64px;font-weight:normal;color:#fff6e4;text-shadow:0 0 18px #ff7a00,0 2px 8px #000}
 #progress{margin:14px auto 0;height:4px;width:min(640px,72%);background:rgba(255,255,255,.16);border-radius:4px;overflow:hidden}
 #progress-bar{height:100%;width:0;background:linear-gradient(90deg,#ffb347,#fff1c9);box-shadow:0 0 12px #ff9a1a}
-#card{position:fixed;right:40px;bottom:168px;z-index:1004;width:400px;padding:22px 26px 18px;color:#fff6e4;
+#card{position:absolute;left:28px;right:24px;bottom:32px;z-index:2;width:auto;padding:22px 26px 18px;color:#fff6e4;
 background:linear-gradient(165deg,rgba(62,36,18,.9),rgba(18,10,24,.84));border:1px solid rgba(255,196,120,.45);border-radius:22px;
 box-shadow:0 20px 50px rgba(0,0,0,.4),0 0 40px rgba(255,140,40,.16);backdrop-filter:blur(10px);
 opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s ease,transform .8s ease}
@@ -32,10 +33,11 @@ opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s 
 #card h2{margin:8px 0;font-size:30px;font-weight:normal;line-height:1.25;color:#fff1d4}
 #card .ord{margin:0;font-size:20px;line-height:1.4;color:#ffd08a;text-shadow:0 0 12px #ff7a0066}
 #card .region{margin:12px 0 0;font-size:15px;color:#d9c4ae}
-#stats{position:fixed;top:22px;right:72px;z-index:1001;width:440px;padding:16px 22px 12px;color:#fff6e4;
+#stats{position:absolute;top:72px;left:28px;right:24px;z-index:1;width:auto;padding:16px 22px 12px;color:#fff6e4;
 background:linear-gradient(160deg,rgba(32,18,48,.78),rgba(7,4,12,.62));border:1px solid rgba(255,196,120,.35);border-radius:20px;
 box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
 #stats .stat{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:2px 0}
+#stat-sharers-row[hidden]{display:none !important}
 #stats .stat b{font-size:64px;line-height:.95;color:#fff3d6;font-weight:bold;text-shadow:0 0 16px #ff9a1a88}
 #stats .stat span{font-size:28px;color:#ffd08a;text-shadow:0 0 10px #ff7a0066}
 #stat-ordinances{list-style:none;margin:10px 0 0;padding:8px 0 0;border-top:1px solid rgba(255,196,120,.3)}
@@ -56,10 +58,11 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 <div id="stage">
 <div id="map"></div>
 <div id="hud"><h1>🌼 Our Ancestors 🌼</h1><div><span id="count">0</span> <span id="count-label">ancestors</span></div></div>
+<aside id="rail">
 <aside id="stats" aria-label="Temple work totals">
   <div class="stat"><b id="stat-ancestors">0</b><span>ancestors</span></div>
   <div class="stat"><b id="stat-countries">0</b><span>countries</span></div>
-  <div class="stat"><b id="stat-sharers">0</b><span>people shared</span></div>
+  <div class="stat" id="stat-sharers-row" hidden><b id="stat-sharers">0</b><span>people shared</span></div>
   <ul id="stat-ordinances">
     <li><b data-name="Baptism">0</b><span>Baptism</span></li>
     <li><b data-name="Confirmation">0</b><span>Confirmation</span></li>
@@ -69,17 +72,18 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
     <li><b data-name="Sealing to Spouse">0</b><span>Sealing to Spouse</span></li>
   </ul>
 </aside>
-<div id="ticker">&nbsp;</div>
-<div id="timeline" hidden>
-  <p id="month-label">This year</p>
-  <div id="progress" aria-hidden="true"><div id="progress-bar"></div></div>
-</div>
 <aside id="card" role="status" aria-live="polite" aria-hidden="true">
   <p class="kicker">Featured light</p>
   <h2 id="card-place"></h2>
   <p id="card-ord" class="ord"></p>
   <p id="card-region" class="region"></p>
 </aside>
+</aside>
+<div id="ticker">&nbsp;</div>
+<div id="timeline" hidden>
+  <p id="month-label">This year</p>
+  <div id="progress" aria-hidden="true"><div id="progress-bar"></div></div>
+</div>
 <button id="reset" type="button" aria-label="Reset lights" title="Reset">↺</button>
 <p id="reset-note" hidden></p>
 </div>
@@ -90,6 +94,7 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 <script src="/timeline.js"></script>
 <script src="/timeline-camera.js"></script>
 <script src="/stage-fit.js"></script>
+<script src="/stage-frame.js"></script>
 <script>
 function fitStage() {
   const portrait = window.matchMedia('(orientation: portrait)').matches;
@@ -99,6 +104,12 @@ function fitStage() {
   root.style.setProperty('--turn', box.turn);
 }
 fitStage();
+function applyFrame() {
+  const root = document.documentElement;
+  root.style.setProperty('--rail', StageFrame.insets.rail + 'px');
+  root.style.setProperty('--map-w', StageFrame.mapSize().width + 'px');
+}
+applyFrame();
 window.addEventListener('resize', fitStage);
 window.addEventListener('orientationchange', fitStage);
 window.matchMedia('(orientation: portrait)').addEventListener('change', fitStage);
@@ -263,11 +274,13 @@ function present(light, delay) {
   else paint(entry);
   return entry;
 }
+function yearView() {
+  return act !== 'timeline' || timelineWide;
+}
 function setCount(n) {
   countN = n;
   count.textContent = String(countN);
-  const yearView = act !== 'timeline' || timelineWide;
-  countLabel.textContent = yearView
+  countLabel.textContent = yearView()
     ? (countN === 1 ? 'ancestor this year' : 'ancestors this year')
     : TimelineCamera.ancestorLabel(countN, false);
 }
@@ -314,15 +327,36 @@ function rememberPinned(lights) {
   pinnedBox = result.box;
   return result.grew;
 }
+function padPoint(which) {
+  const point = StageFrame.padding()[which];
+  return L.point(point.x, point.y);
+}
+function frameOptions(cap) {
+  return {
+    paddingTopLeft: padPoint('topLeft'),
+    paddingBottomRight: padPoint('bottomRight'),
+    maxZoom: cap,
+  };
+}
 function fittedCamera(cap) {
   const view = TimelineCamera.spanBox(pinnedBox, 0.5);
   const bounds = L.latLngBounds([view.south, view.west], [view.north, view.east]);
-  const fitted = map._getBoundsCenterZoom(bounds, {
-    paddingTopLeft: L.point(140, 160),
-    paddingBottomRight: L.point(140, 220),
-    maxZoom: cap,
-  });
+  const fitted = map._getBoundsCenterZoom(bounds, frameOptions(cap));
   return { center: fitted.center, zoom: TimelineCamera.zoomOutOnly(cap, fitted.zoom) };
+}
+function worldBounds() {
+  const box = StageFrame.world;
+  return L.latLngBounds([box.south, box.west], [box.north, box.east]);
+}
+function worldCamera(cap) {
+  const fitted = map._getBoundsCenterZoom(worldBounds(), frameOptions(cap));
+  if (!fitted.center || fitted.zoom == null) return { center: WORLD.center, zoom: cap };
+  return { center: fitted.center, zoom: TimelineCamera.zoomOutOnly(cap, fitted.zoom) };
+}
+function lightBounds(latlng) {
+  const ll = L.latLng(latlng);
+  const box = StageFrame.around(ll.lat, ll.lng);
+  return L.latLngBounds([box.south, box.west], [box.north, box.east]);
 }
 function easeCamera(center, zoom) {
   const token = ++cameraToken;
@@ -381,7 +415,8 @@ function frameFirstLights() {
   rememberPinned(first ? first.lights : []);
   if (!pinnedBox) {
     cameraToken += 1;
-    map.setView(WORLD.center, WORLD.zoom, { animate: false });
+    const world = worldCamera(WORLD.zoom);
+    map.setView(world.center, world.zoom, { animate: false });
     return;
   }
   moveTimelineCamera(true);
@@ -408,7 +443,9 @@ function applyTimelineEvent(event) {
     timelineWide = true;
     revealMissed();
     setCount(countN);
-    easeCamera(WORLD.center, WORLD.zoom);
+    paintTotals();
+    const world = worldCamera(WORLD.zoom);
+    easeCamera(world.center, world.zoom);
   } else if (event.type === 'fade') {
     fadeMarkers();
   } else if (event.type === 'restart') {
@@ -518,12 +555,20 @@ function runStep() {
     present(step.light, 0);
     setBloom(currentKey);
     showCard(step.light);
-    map.flyTo(focusOf(step.light), SPOT_ZOOM, flyOpts());
+    map.flyToBounds(lightBounds(focusOf(step.light)), Object.assign({
+      paddingTopLeft: padPoint('topLeft'),
+      paddingBottomRight: padPoint('bottomRight'),
+      maxZoom: SPOT_ZOOM,
+    }, flyOpts()));
   } else if (step.type === 'world') {
     currentKey = null;
     setBloom(null);
     hideCard();
-    map.flyTo(WORLD.center, WORLD.zoom, flyOpts());
+    map.flyToBounds(worldBounds(), Object.assign({
+      paddingTopLeft: padPoint('topLeft'),
+      paddingBottomRight: padPoint('bottomRight'),
+      maxZoom: WORLD.zoom,
+    }, flyOpts()));
   } else {
     currentKey = null;
     setBloom(null);
@@ -560,6 +605,8 @@ function paintBody(body) {
   }
 }
 function paintTotals() {
+  const sharersRow = document.getElementById('stat-sharers-row');
+  if (sharersRow) sharersRow.hidden = !yearView();
   if (act !== 'timeline') {
     paintBody(serverStats);
     return;
