@@ -13,6 +13,7 @@ export default {
       return handleApi(request, {
         store: d1Store(env.DB),
         resetToken: env.RESET_TOKEN || '',
+        resetPin: env.RESET_PIN || '1337',
         kick: () => env.GEOCODER.getByName('nominatim').kick(),
         ctx,
       });
