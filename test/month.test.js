@@ -111,12 +111,12 @@ test('the completed-day migration backfills month and leaves a dateless row alon
     db.exec(fs.readFileSync(path.join(dir, name), 'utf8'));
   }
   const insert = db.prepare(
-    'INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated, month, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO lights (group_id, person_id, place, lat, lon, ordinance, created, updated, month, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
-  insert.run('PRE1-001', 'Mercer', 1, 2, '[]', 1, 1, null, null);
-  insert.run('DATE-001', 'Cork', 1, 2, '[]', 2, 2, null, '2026-06-15');
-  insert.run('KEEP-001', 'Texas', 1, 2, '[]', 3, 3, '2026-01', '2026-08-01');
-  insert.run('BAD1-001', 'Oulu', 1, 2, '[]', 4, 4, null, 'not-a-date');
+  insert.run(1, 'PRE1-001', 'Mercer', 1, 2, '[]', 1, 1, null, null);
+  insert.run(1, 'DATE-001', 'Cork', 1, 2, '[]', 2, 2, null, '2026-06-15');
+  insert.run(1, 'KEEP-001', 'Texas', 1, 2, '[]', 3, 3, '2026-01', '2026-08-01');
+  insert.run(1, 'BAD1-001', 'Oulu', 1, 2, '[]', 4, 4, null, 'not-a-date');
   const sql = fs.readFileSync(path.join(dir, '0005_light_completed.sql'), 'utf8');
   const updates = sql.split(';').map(part => part.trim()).filter(part => /^UPDATE\b/i.test(part));
   assert.equal(updates.length, 2);
