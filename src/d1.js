@@ -6,6 +6,7 @@ import { serializeOrdinances } from '../lib/ordinances.js';
 import { countryForLight, fillCountries } from '../lib/country.js';
 import { tally } from '../lib/stats.js';
 import { RECENT_MS } from '../lib/quota.js';
+import { loadGeocache } from '../lib/query-cache.js';
 import { resolveMonth } from '../lib/month.js';
 
 export function d1Store(db) {
@@ -36,14 +37,7 @@ export function d1Store(db) {
       return row && row.created ? row.created : 0;
     },
     async cacheFor(queries) {
-      const cache = {};
-      if (!queries.length) return cache;
-      const marks = queries.map(() => '?').join(',');
-      const rows = await db.prepare(`SELECT query, lat, lon, country FROM geocache WHERE query IN (${marks})`).bind(...queries).all();
-      for (const row of rows.results || []) {
-        cache[row.query] = row.lat == null || row.lon == null ? null : { lat: row.lat, lon: row.lon, country: row.country || null };
-      }
-      return cache;
+      return loadGeocache(db, queries);
     },
     async listLights(since) {
       const min = Number(since) || 0;
