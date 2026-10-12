@@ -9,6 +9,10 @@ test('an empty map stays idle and a single light alternates with the world', () 
   const empty = createRotation({ rng: () => 0 });
   assert.equal(empty.next().type, 'idle');
   assert.equal(empty.next().type, 'idle');
+  empty.seed([light('Cork, Ireland', 51.9, 1, ['Endowment'])]);
+  empty.clear();
+  assert.equal(empty.all().length, 0);
+  assert.equal(empty.next().type, 'idle');
 
   const one = createRotation({ every: 4, rng: () => 0 });
   one.seed([light('Cork, Ireland', 51.9, 1, ['Endowment'])]);

@@ -44,6 +44,9 @@ test('the upload and TV pages expose the success card and the spotlight', () => 
   assert.match(upload, /Already on the map/);
   assert.match(upload, /id="see-map" href="\/tv"/);
   assert.match(upload, /See the map/);
+  assert.equal((upload.match(/Scroll all the way to the bottom/g) || []).length, 2);
+  assert.match(upload, /class="os ios"><b>Scroll all the way to the bottom<\/b> of the list and tap <b>Download List<\/b>/);
+  assert.match(upload, /class="os android"><b>Scroll all the way to the bottom<\/b> of the list and tap <b>Download List<\/b>/);
   assert.match(upload, /class="candles"/);
   assert.match(upload, /<html lang="en">/);
   assert.match(upload, /<title>Light a candle 🕯️<\/title>/);
@@ -57,5 +60,7 @@ test('the upload and TV pages expose the success card and the spotlight', () => 
   assert.match(tv, /Our Ancestors/);
   assert.match(tv, /light of temple work this year/);
   assert.match(tv, /lights of temple work this year/);
+  assert.match(tv, /paintCountriesDuringMove/);
+  assert.match(tv, /padding: 0\.8/);
   assert.doesNotMatch(tv, /Nuestros|Antepasados/);
 });

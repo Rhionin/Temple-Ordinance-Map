@@ -27,9 +27,11 @@ box-shadow:0 0 14px 5px #ff9a1aaa;transform-origin:50% 100%;animation:light 1.05
 @keyframes light{0%{transform:scale(.15);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes sway{0%,100%{transform:scale(1) rotate(-5deg)}50%{transform:scale(1.06) rotate(5deg)}}
 #msg.error{color:#ffd2cc;background:#3a1420;border:1px solid #a84a55;border-radius:12px;padding:12px}
+#version-notice{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#3a2412;color:#ffe1a8;border:1px solid #ffb15a;border-radius:999px;padding:8px 14px;font:600 14px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 24px #0008}
 @media (prefers-reduced-motion:reduce){.candle span{animation:none;opacity:1}}
 </style></head><body><main>
 <h1>🌼 Light a candle for your ancestors</h1>
+<button type="button" id="version-notice" hidden>Updated, refresh</button>
 <p>Every ancestor whose temple work was finished this past year becomes a glowing light on the big screen. It takes about a minute!</p>
 <div class="tabs">Showing steps for <b id="osname"></b> · <a href="#" data-os="ios">iPhone</a><a href="#" data-os="android">Android</a></div>
 
@@ -42,9 +44,11 @@ box-shadow:0 0 14px 5px #ff9a1aaa;transform-origin:50% 100%;animation:light 1.05
 <details class="os android"><summary>Still opening the app?</summary><p>Try a Chrome <b>New Incognito tab</b> (⋮ menu) and paste the link. Or: Settings › Apps › FamilySearch Tree › <b>Open by default</b> › turn off <b>Open supported links</b> (you can turn it back on later).</p></details>
 </div>
 
-<div class="step"><div class="n">2</div><h2>Sign in and tap “Download List”</h2>
-<p class="os ios">Don’t see the button? Tap <b>aA</b> (or the ••• menu) in the address bar › <b>Request Desktop Website</b>. When asked, tap <b>Download</b>.</p>
-<p class="os android">Don’t see the button? Tap <b>⋮</b> › check <b>Desktop site</b>. Then tap <b>Download</b> if asked.</p>
+<div class="step"><div class="n">2</div><h2>Sign in, then scroll to the bottom</h2>
+<p class="os ios"><b>Scroll all the way to the bottom</b> of the list and tap <b>Download List</b>.</p>
+<p class="os ios">Don’t see it? Tap <b>aA</b> (or •••) › <b>Request Desktop Website</b>, then scroll to the bottom again.</p>
+<p class="os android"><b>Scroll all the way to the bottom</b> of the list and tap <b>Download List</b>.</p>
+<p class="os android">Don’t see it? Tap <b>⋮</b> › <b>Desktop site</b>, then scroll to the bottom again.</p>
 </div>
 
 <div class="step"><div class="n">3</div><h2>Come back here and pick the file</h2>
@@ -65,7 +69,7 @@ box-shadow:0 0 14px 5px #ff9a1aaa;transform-origin:50% 100%;animation:light 1.05
 <div id="msg" role="status" aria-live="polite"></div></div>
 
 <p class="muted">Privacy: we keep only each person’s FamilySearch ID (so nobody’s counted twice), the place, and the ordinance types. Names are never stored or shown. The screen shows the place and the ordinance, never a name or ID.</p>
-</main><script src="/upload-status.js"></script><script>
+</main><script src="/version.js"></script><script src="/upload-status.js"></script><script>
 const ua=navigator.userAgent, isIOS=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
 function setOS(os){document.querySelectorAll('.os').forEach(e=>e.style.display=e.classList.contains(os)?'':'none');osname.textContent=os=='ios'?'iPhone':'Android';}
 setOS(new URLSearchParams(location.search).get('os')||(isIOS?'ios':'android'));
@@ -124,6 +128,14 @@ function watchProgress(since,view){
  tick();
  pollTimer=setInterval(tick,2000);
 }
+function sharerId(){
+ try{
+  const key='tom-sharer';
+  let id=localStorage.getItem(key);
+  if(!id){ id=crypto.randomUUID(); localStorage.setItem(key, id); }
+  return id;
+ }catch(error){ return ''; }
+}
 csv.onchange=async()=>{
  if(busy)return;
  const file=csv.files[0];
@@ -141,7 +153,7 @@ csv.onchange=async()=>{
   msg.textContent='Lighting the candles…';
   const since=await baselineStamp();
   let response;
-  try{ response=await fetch('/api/upload',{method:'POST',body:text}); }
+  try{ response=await fetch('/api/upload',{method:'POST',headers:{'X-Sharer':sharerId()},body:text}); }
   catch(error){ showError(UploadStatus.describeError('network')); return; }
   let stats={};
   try{ stats=await response.json(); }catch(error){ stats={}; }
@@ -160,4 +172,12 @@ csv.onchange=async()=>{
   csv.value='';
  }
 };
+const versionNotice=document.getElementById('version-notice');
+versionNotice.onclick=()=>{ if(!busy) location.reload(); };
+Version.watch({
+ mode:'upload',
+ idle(){ return !busy && !(csv.files&&csv.files.length) && result.hidden; },
+ reload(){ location.reload(); },
+ notice(){ versionNotice.hidden=false; },
+});
 </script></body></html>
