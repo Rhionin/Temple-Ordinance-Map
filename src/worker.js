@@ -1,4 +1,5 @@
 import { handleApi } from '../lib/http.js';
+import { withSecurityHeaders } from '../lib/headers.js';
 import { d1Store } from './d1.js';
 import { Geocoder } from './geocoder.js';
 
@@ -16,18 +17,18 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/')) {
-      return handleApi(request, {
+      return withSecurityHeaders(await handleApi(request, {
         store: d1Store(env.DB),
         resetToken: env.RESET_TOKEN || '',
         resetPin: env.RESET_PIN || '1337',
         buildId: env.BUILD_ID || '',
         kick: () => env.GEOCODER.getByName('nominatim').kick(),
         ctx,
-      });
+      }));
     }
     const page = PAGES[url.pathname];
-    if (page) return fresh(await env.ASSETS.fetch(new URL(page, request.url)));
-    if (url.pathname === '/version.js') return fresh(await env.ASSETS.fetch(request));
-    return env.ASSETS.fetch(request);
+    if (page) return withSecurityHeaders(fresh(await env.ASSETS.fetch(new URL(page, request.url))));
+    if (url.pathname === '/version.js') return withSecurityHeaders(fresh(await env.ASSETS.fetch(request)));
+    return withSecurityHeaders(await env.ASSETS.fetch(request));
   },
 };
