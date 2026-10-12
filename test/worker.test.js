@@ -285,10 +285,15 @@ test('the same ordinance again is still a duplicate', () => {
   assert.deepEqual(plan.merges, []);
 });
 
-test('wrangler config has no account id and keeps the Tests-sized placeholder database id', () => {
+test('wrangler config has the production database and no account id', () => {
   const toml = fs.readFileSync(path.join(__dirname, '..', 'wrangler.toml'), 'utf8');
   assert.match(toml, /name = "temple-ordinance-map"/);
-  assert.match(toml, /database_id = "00000000-0000-0000-0000-000000000000"/);
+  assert.match(toml, /database_name = "temple-ordinance-map"/);
+  assert.match(toml, /database_id = "3ac5318c-7b9f-45d5-a5d0-862076f3e4b2"/);
+  assert.match(toml, /pattern = "temple-ordinance-map\.rhionin\.com"/);
+  assert.match(toml, /custom_domain = true/);
+  assert.match(toml, /GEOCODE_UA = "Temple-Ordinance-Map \(rhionin@gmail.com\)"/);
   assert.match(toml, /new_sqlite_classes = \["Geocoder"\]/);
+  assert.match(toml, /tag = "v1"/);
   assert.doesNotMatch(toml, /account_id\s*=/);
 });
