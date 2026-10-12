@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { server } = require('../server');
+const { server, publicFile } = require('../server');
 
 test('the TV page loads Leaflet from this host', async () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
@@ -26,6 +26,9 @@ test('the TV page loads Leaflet from this host', async () => {
     assert.equal(icon.status, 200);
     const escaped = await fetch('http://127.0.0.1:' + port + '/vendor/../server.js');
     assert.equal(escaped.status, 404);
+    assert.equal(publicFile('/vendor/../server.js'), null);
+    assert.equal(publicFile('/vendor/%2e%2e/%2e%2e/server.js'), null);
+    assert.equal(publicFile('/vendor/leaflet.js').endsWith(path.join('public', 'vendor', 'leaflet.js')), true);
   } finally {
     await new Promise(resolve => server.close(resolve));
   }

@@ -20,8 +20,8 @@ function memoryStore(seed = {}) {
     },
     async known() {
       return [
-        ...lights.map(light => ({ id: light.id, ordinance: light.ordinance })),
-        ...jobs.filter(job => job.status !== 'failed').map(job => ({ id: job.id, ordinance: job.ordinance })),
+        ...lights.map(light => ({ id: light.id, ordinance: light.ordinance, month: light.month || null })),
+        ...jobs.filter(job => job.status !== 'failed').map(job => ({ id: job.id, ordinance: job.ordinance, month: job.month || null })),
       ];
     },
     async maxCreated() {
@@ -40,14 +40,29 @@ function memoryStore(seed = {}) {
       if (light) {
         light.ordinance = serializeOrdinances(merge.ordinance);
         light.updated = merge.updated;
+        if (merge.month && (!light.month || merge.month < light.month)) light.month = merge.month;
         return true;
       }
       const job = jobs.find(existing => existing.id === merge.id && existing.status !== 'failed');
       if (job) {
         job.ordinance = serializeOrdinances(merge.ordinance);
+        if (merge.month && (!job.month || merge.month < job.month)) job.month = merge.month;
         return true;
       }
       return false;
+    },
+    async setMonth(update) {
+      const light = lights.find(existing => existing.id === update.id);
+      if (light) {
+        if (update.month && (!light.month || update.month < light.month)) {
+          light.month = update.month;
+          light.updated = update.updated;
+        }
+        return true;
+      }
+      const job = jobs.find(existing => existing.id === update.id && existing.status !== 'failed');
+      if (job && update.month && (!job.month || update.month < job.month)) job.month = update.month;
+      return !!job;
     },
     async insertLight(light) {
       if (lights.some(existing => existing.id === light.id)) return false;
@@ -82,7 +97,7 @@ test('upload plan keeps recent rows, drops names, and queues geocoding', () => {
   assert.equal(plan.pending.length, 2);
   assert.equal(plan.immediate.length, 0);
   for (const job of plan.pending) {
-    assert.deepEqual(storedKeys(job), ['cursor', 'id', 'ordinance', 'place']);
+    assert.deepEqual(storedKeys(job), ['cursor', 'id', 'month', 'ordinance', 'place']);
     assert.match(job.id, /^[A-Z0-9]{4}-[A-Z0-9]{2,4}$/);
     assert.equal(job.name, undefined);
     assert.equal(job.temple, undefined);
@@ -90,6 +105,8 @@ test('upload plan keeps recent rows, drops names, and queues geocoding', () => {
   assert.ok(plan.pending.some(job => job.place === 'Cork, Ireland'));
   assert.ok(!plan.pending.some(job => job.id === 'ABCD-125'));
   assert.deepEqual(JSON.parse(plan.pending.find(job => job.id === 'ABCD-123').ordinance), ['Baptism']);
+  assert.equal(plan.pending.find(job => job.id === 'ABCD-123').month, '2026-09');
+  assert.equal(plan.pending.find(job => job.id === 'ABCD-124').month, '2026-06');
 });
 
 test('cached places become lights immediately and duplicates are skipped', () => {
@@ -102,7 +119,7 @@ test('cached places become lights immediately and duplicates are skipped', () =>
   assert.equal(plan.immediate.length, 1);
   assert.equal(plan.immediate[0].id, 'ABCD-124');
   assert.equal(plan.immediate[0].name, undefined);
-  assert.deepEqual(storedKeys(plan.immediate[0]), ['id', 'lat', 'lon', 'ordinance', 'place']);
+  assert.deepEqual(storedKeys(plan.immediate[0]), ['id', 'lat', 'lon', 'month', 'ordinance', 'place']);
 });
 
 test('known misses fall through to the next place candidate', () => {
@@ -193,6 +210,44 @@ test('api upload queues work, hides private fields, and reset requires the token
   assert.equal(await tokensMatch('s3cret', 'other'), false);
 });
 
+test('reset accepts PIN 1337, rejects a wrong PIN, and keeps the geocode cache', async () => {
+  const store = memoryStore({
+    lights: [{ id: 'ABCD-1', place: 'Cork, Ireland', ordinance: 'Baptism', lat: 51.9, lon: -8.47, created: 1 }],
+    jobs: [{ id: 'ABCD-2', place: 'Ogden', ordinance: 'Endowment', status: 'pending' }],
+    cache: { 'Cork, Ireland': { lat: 51.9, lon: -8.47 } },
+  });
+  const wrong = await handleApi(req('/api/reset', { method: 'POST', headers: { 'x-reset-pin': '0000' } }), { store, resetToken: '' });
+  assert.equal(wrong.status, 401);
+  assert.equal(store.lights.length, 1);
+  assert.equal(store.jobs.length, 1);
+  const byBody = memoryStore({
+    lights: [{ id: 'ABCD-1', place: 'Cork, Ireland', ordinance: 'Baptism', lat: 51.9, lon: -8.47, created: 1 }],
+    cache: { 'Cork, Ireland': { lat: 51.9, lon: -8.47 } },
+  });
+  const bodyCleared = await handleApi(req('/api/reset', { method: 'POST', body: JSON.stringify({ pin: '1337' }) }), { store: byBody, resetToken: '' });
+  assert.equal(bodyCleared.status, 200);
+  assert.deepEqual(byBody.lights, []);
+  assert.deepEqual(byBody.cache['Cork, Ireland'], { lat: 51.9, lon: -8.47 });
+  const cleared = await handleApi(req('/api/reset', { method: 'POST', headers: { 'x-reset-pin': '1337' } }), { store, resetToken: '' });
+  assert.equal(cleared.status, 200);
+  assert.deepEqual(store.lights, []);
+  assert.deepEqual(store.jobs, []);
+  assert.deepEqual(store.cache['Cork, Ireland'], { lat: 51.9, lon: -8.47 });
+  const custom = memoryStore({ lights: [{ id: 'ABCD-9', place: 'X', lat: 1, lon: 2, created: 3, ordinance: 'Baptism' }] });
+  assert.equal((await handleApi(req('/api/reset', { method: 'POST', headers: { 'x-reset-pin': '1337' } }), { store: custom, resetToken: '', resetPin: '9999' })).status, 401);
+  assert.equal(custom.lights.length, 1);
+  assert.equal((await handleApi(req('/api/reset', { method: 'POST', headers: { 'x-reset-pin': '0000', authorization: 'Bearer s3cret' } }), { store: custom, resetToken: 's3cret', resetPin: '9999' })).status, 200);
+  assert.deepEqual(custom.lights, []);
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
+  assert.match(html, /1337/);
+  assert.match(html, /Clear all lights and start over\?/);
+  assert.match(html, /mousemove/);
+  assert.match(html, /touchstart/);
+  assert.match(html, /That PIN is not right/);
+  assert.match(html, /mapEpoch/);
+  assert.match(html, /catalog\.clear\(\)/);
+});
+
 test('oversized uploads are rejected before they are parsed', async () => {
   const store = memoryStore();
   const response = await handleApi(req('/api/upload', { method: 'POST', headers: { 'content-length': '5000001' }, body: 'nope' }), { store });
@@ -208,19 +263,22 @@ test('d1 migration stores deduped lights and the public query omits ids', () => 
     db.exec(fs.readFileSync(path.join(dir, name), 'utf8'));
   }
   const columns = db.prepare('PRAGMA table_info(lights)').all().map(column => column.name);
-  assert.deepEqual(columns, ['person_id', 'place', 'lat', 'lon', 'ordinance', 'created', 'updated']);
+  assert.deepEqual(columns, ['person_id', 'place', 'lat', 'lon', 'ordinance', 'created', 'updated', 'month', 'country']);
   assert.ok(!columns.includes('name'));
   const insert = db.prepare('INSERT INTO lights (person_id, place, lat, lon, ordinance, created) VALUES (?, ?, ?, ?, ?, ?)');
   insert.run('ABCD-123', 'Cork, Ireland', 51.9, -8.47, 'Endowment', 10);
   assert.throws(() => insert.run('ABCD-123', 'Other', 1, 2, 'Baptism', 11));
   const jobColumns = db.prepare('PRAGMA table_info(jobs)').all().map(column => column.name);
-  assert.deepEqual(jobColumns, ['person_id', 'place', 'ordinance', 'created', 'cursor_idx', 'status']);
+  assert.deepEqual(jobColumns, ['person_id', 'place', 'ordinance', 'created', 'cursor_idx', 'status', 'month']);
   const cacheColumns = db.prepare('PRAGMA table_info(geocache)').all().map(column => column.name);
-  assert.deepEqual(cacheColumns, ['query', 'lat', 'lon', 'cached_at']);
+  assert.deepEqual(cacheColumns, ['query', 'lat', 'lon', 'cached_at', 'country']);
+  const sharerColumns = db.prepare('PRAGMA table_info(sharers)').all().map(column => column.name);
+  assert.deepEqual(sharerColumns, ['id_hash', 'created']);
   const pub = db.prepare(
-    'SELECT place, lat, lon, ordinance, created, updated FROM lights WHERE created > ? OR updated > ? ORDER BY created'
+    'SELECT place, lat, lon, ordinance, created, updated, month FROM lights WHERE created > ? OR updated > ? ORDER BY created'
   ).all(0, 0);
-  assert.deepEqual(Object.keys(pub[0]).sort(), ['created', 'lat', 'lon', 'ordinance', 'place', 'updated']);
+  assert.deepEqual(Object.keys(pub[0]).sort(), ['created', 'lat', 'lon', 'month', 'ordinance', 'place', 'updated']);
+  assert.equal(pub[0].month, null);
   assert.equal(pub[0].person_id, undefined);
 });
 
