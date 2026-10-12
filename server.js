@@ -62,9 +62,10 @@ function remember(light) {
   save();
   publish(light);
 }
-function touch(light, ordinance, updated) {
+function touch(light, ordinance, updated, month) {
   light.ordinance = ordinance;
   light.updated = updated;
+  if (month && (!light.month || month < light.month)) light.month = month;
   save();
   publish(light);
 }
@@ -91,18 +92,24 @@ async function ingest(text) {
     const light = lights.find(item => item.id === merge.id);
     if (!light) continue;
     created = nextCreated(Date.now(), created);
-    touch(light, serializeOrdinances(merge.ordinances), created);
+    touch(light, serializeOrdinances(merge.ordinances), created, merge.month || null);
+  }
+  for (const fix of plan.monthFixes || []) {
+    const light = lights.find(item => item.id === fix.id);
+    if (!light || !fix.month || (light.month && light.month <= fix.month)) continue;
+    created = nextCreated(Date.now(), created);
+    touch(light, light.ordinance, created, fix.month);
   }
   for (const row of plan.immediate) {
     created = nextCreated(Date.now(), created);
-    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, created, updated: created });
+    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, month: row.month || null, created, updated: created });
   }
   for (const job of plan.pending) {
     const coord = await geocode(job.place);
     plan.stats.queued--;
     if (!coord) { plan.stats.unresolved.push(job.place); continue; }
     created = nextCreated(Date.now(), created);
-    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, created, updated: created });
+    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, month: job.month || null, created, updated: created });
     plan.stats.added++;
     plan.stats.geocoded++;
   }
@@ -168,7 +175,7 @@ const server = http.createServer(async (req, res) => {
     req.on('close', () => sseClients.delete(res));
     return;
   }
-  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js' }[url.pathname];
+  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js', '/timeline.js': 'timeline.js' }[url.pathname];
   if (script) {
     res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', script)));

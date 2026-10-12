@@ -26,7 +26,7 @@ export class Geocoder extends DurableObject {
     let lastFetch = (await this.ctx.storage.get('lastFetch')) || 0;
     for (let step = 0; step < 40; step++) {
       const job = await db.prepare(
-        "SELECT person_id, place, ordinance, created, cursor_idx FROM jobs WHERE status = 'pending' ORDER BY created, person_id LIMIT 1"
+        "SELECT person_id, place, ordinance, created, cursor_idx, month FROM jobs WHERE status = 'pending' ORDER BY created, person_id LIMIT 1"
       ).first();
       if (!job) return;
 
@@ -111,11 +111,11 @@ async function finishLight(db, job, coord) {
   const created = nextCreated(Date.now(), Math.max((row && row.created) || 0, (row && row.updated) || 0));
   await db.batch([
     db.prepare(
-      `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated)
-       SELECT ?, ?, ?, ?, ?, ?, ?
+      `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated, month)
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?
        WHERE EXISTS (SELECT 1 FROM jobs WHERE person_id = ? AND status = 'pending')
        ON CONFLICT(person_id) DO NOTHING`
-    ).bind(job.person_id, job.place, coord.lat, coord.lon, job.ordinance || '', created, created, job.person_id),
+    ).bind(job.person_id, job.place, coord.lat, coord.lon, job.ordinance || '', created, created, job.month || null, job.person_id),
     db.prepare("UPDATE jobs SET status = 'done' WHERE person_id = ? AND status = 'pending'").bind(job.person_id),
   ]);
 }
