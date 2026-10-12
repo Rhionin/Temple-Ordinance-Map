@@ -2,11 +2,14 @@
 <title>Temple Ordinance Lights</title>
 <link rel="stylesheet" href="/vendor/leaflet.css"><script src="/vendor/leaflet.js"></script>
 <style>
-html,body,#map{margin:0;height:100%;background:#07040c;font-family:Georgia,serif}
+html,body{margin:0;height:100%;overflow:hidden;background:#07040c;font-family:Georgia,serif}
+#stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform:translate(-50%,-50%) scale(var(--fit,1));transform-origin:center center;background:#07040c}
+#map{position:absolute;inset:0;width:1920px;height:1080px;background:#07040c}
 .leaflet-container{background:#07040c}
 .leaflet-div-icon,.candle-icon{background:transparent;border:none}
-#hud{position:fixed;top:24px;left:32px;z-index:999;color:#ffd08a;text-shadow:0 0 14px #ff7a00}
+#hud{position:fixed;top:24px;left:32px;z-index:999;max-width:980px;color:#ffd08a;text-shadow:0 0 14px #ff7a00}
 #hud h1{margin:0;font-size:42px;color:#ffa31a}#count{font-size:72px;font-weight:bold;color:#fff3d6}
+#count-label{font-size:28px}
 #ticker{position:fixed;bottom:0;left:0;right:0;z-index:999;padding:14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
 .glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(#fff8e0 0,#ffcf4d 30%,#ff8a00 60%,transparent 72%);
 box-shadow:0 0 12px 5px #ff9a1a99,0 0 30px 12px #ff6a0055;animation:pop 1.6s ease-out,flick 2.4s infinite alternate}
@@ -20,7 +23,7 @@ background:linear-gradient(transparent,#07040cf2)}
 #month-label{margin:0;font-size:64px;font-weight:normal;color:#fff6e4;text-shadow:0 0 18px #ff7a00,0 2px 8px #000}
 #progress{margin:14px auto 0;height:4px;width:min(640px,72%);background:rgba(255,255,255,.16);border-radius:4px;overflow:hidden}
 #progress-bar{height:100%;width:0;background:linear-gradient(90deg,#ffb347,#fff1c9);box-shadow:0 0 12px #ff9a1a}
-#card{position:fixed;right:40px;bottom:92px;z-index:1000;width:min(400px,calc(100% - 48px));padding:22px 26px 18px;color:#fff6e4;
+#card{position:fixed;right:40px;bottom:168px;z-index:1004;width:400px;padding:22px 26px 18px;color:#fff6e4;
 background:linear-gradient(165deg,rgba(62,36,18,.9),rgba(18,10,24,.84));border:1px solid rgba(255,196,120,.45);border-radius:22px;
 box-shadow:0 20px 50px rgba(0,0,0,.4),0 0 40px rgba(255,140,40,.16);backdrop-filter:blur(10px);
 opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s ease,transform .8s ease}
@@ -29,7 +32,7 @@ opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s 
 #card h2{margin:8px 0;font-size:30px;font-weight:normal;line-height:1.25;color:#fff1d4}
 #card .ord{margin:0;font-size:20px;line-height:1.4;color:#ffd08a;text-shadow:0 0 12px #ff7a0066}
 #card .region{margin:12px 0 0;font-size:15px;color:#d9c4ae}
-#stats{position:fixed;top:22px;right:72px;z-index:1001;width:min(440px,36vw);padding:16px 22px 12px;color:#fff6e4;
+#stats{position:fixed;top:22px;right:72px;z-index:1001;width:440px;padding:16px 22px 12px;color:#fff6e4;
 background:linear-gradient(160deg,rgba(32,18,48,.78),rgba(7,4,12,.62));border:1px solid rgba(255,196,120,.35);border-radius:20px;
 box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
 #stats .stat{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:2px 0}
@@ -45,23 +48,14 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 #reset.show,#reset:focus-visible{opacity:.4}
 #reset.show:hover,#reset:focus-visible{opacity:.9}
 #reset-note{position:fixed;top:56px;right:18px;z-index:1003;margin:0;max-width:220px;text-align:right;font-size:14px;color:#e7b56a}
-@media (max-width:700px){
-  #hud{top:14px;left:14px}#hud h1{font-size:26px}#count{font-size:46px}
-  #ticker{font-size:18px;padding:12px 16px}
-  #card{left:16px;right:16px;bottom:72px;width:auto;padding:16px 18px}
-  #card h2{font-size:24px}#card .ord{font-size:17px}
-  #month-label{font-size:36px}#timeline{padding-bottom:18px}
-  #stats{top:8px;right:52px;width:auto;padding:8px 10px}
-  #stats .stat b{font-size:28px}#stats .stat span{font-size:13px}
-  #stat-ordinances b{font-size:16px}#stat-ordinances span{font-size:12px}
-}
 @media (prefers-reduced-motion:reduce){
   .glow,.glow.bloom{animation:none}
   #card{transition:none}
 }
 </style></head><body>
+<div id="stage">
 <div id="map"></div>
-<div id="hud"><h1>🌼 Our Ancestors 🌼</h1><div><span id="count">0</span> <span id="count-label" style="font-size:28px">lights of temple work this year</span></div></div>
+<div id="hud"><h1>🌼 Our Ancestors 🌼</h1><div><span id="count">0</span> <span id="count-label">ancestors this year</span></div></div>
 <aside id="stats" aria-label="Temple work totals">
   <div class="stat"><b id="stat-ancestors">0</b><span>ancestors</span></div>
   <div class="stat"><b id="stat-countries">0</b><span>countries</span></div>
@@ -88,10 +82,19 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 </aside>
 <button id="reset" type="button" aria-label="Reset lights" title="Reset">↺</button>
 <p id="reset-note" hidden></p>
+</div>
+<script src="/country-at.js"></script>
+<script src="/visible-totals.js"></script>
 <script src="/version.js"></script>
 <script src="/spotlight.js"></script>
 <script src="/timeline.js"></script>
 <script>
+function fitStage() {
+  const fit = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  document.documentElement.style.setProperty('--fit', String(fit > 0 ? fit : 1));
+}
+fitStage();
+window.addEventListener('resize', fitStage);
 const WORLD = { center: [25, 0], zoom: 2.4 };
 const SPOT_ZOOM = 4.8;
 const DWELL_MS = 9000;
@@ -114,7 +117,12 @@ function paintCountriesDuringMove() {
   });
 }
 paintCountriesDuringMove();
-fetch('/world.geojson').then(r => r.json()).then(g => L.geoJSON(g, { interactive: false, style: { color: '#6b3f8a', weight: .7, fillColor: '#1d1230', fillOpacity: 1 } }).addTo(map).bringToBack());
+let countryAt = function () { return null; };
+fetch('/world.geojson').then(r => r.json()).then(g => {
+  countryAt = CountryAt.fromGeoJSON(g);
+  L.geoJSON(g, { interactive: false, style: { color: '#6b3f8a', weight: .7, fillColor: '#1d1230', fillOpacity: 1 } }).addTo(map).bringToBack();
+  paintTotals();
+});
 map.attributionControl.addAttribution('Natural Earth');
 
 const params = new URLSearchParams(location.search);
@@ -203,7 +211,7 @@ function present(light, delay) {
 function setCount(n) {
   countN = n;
   count.textContent = String(countN);
-  countLabel.textContent = countN === 1 ? 'light of temple work this year' : 'lights of temple work this year';
+  countLabel.textContent = countN === 1 ? 'ancestor this year' : 'ancestors this year';
 }
 function showTimelineChrome(on) {
   timelineHud.hidden = !on;
@@ -218,13 +226,19 @@ function clearMarkers() {
   spots.clear();
   setBloom(null);
   setCount(0);
+  paintTotals();
 }
 function fadeMarkers() {
   for (const entry of markers.values()) if (entry.el) entry.el.classList.add('out');
 }
+function revealedLights() {
+  return [...markers.values()].map(entry => entry.light);
+}
 function revealLight(light) {
   const entry = present(light, 0);
   setBloom(entry.key);
+  showCard(entry.light, revealedLights());
+  paintTotals();
   return entry;
 }
 function revealMissed() {
@@ -332,8 +346,8 @@ function setBloom(key) {
   const entry = markers.get(key);
   if (entry && entry.el) entry.el.classList.add('bloom');
 }
-function showCard(light) {
-  const caption = Spotlight.captionFor(light, rotation.all());
+function showCard(light, pool) {
+  const caption = Spotlight.captionFor(light, pool || rotation.all());
   cardPlace.textContent = caption.place;
   cardOrd.textContent = caption.ordinancesText;
   cardRegion.textContent = caption.regionText;
@@ -395,20 +409,42 @@ function rememberLight(light) {
   catalog.set(Spotlight.lightKey(light), light);
   noteSince(light);
 }
-const STAT_ORDINANCES = ['Baptism', 'Confirmation', 'Initiatory', 'Endowment', 'Sealing to Parents', 'Sealing to Spouse'];
+let serverStats = null;
+function paintBody(body) {
+  document.getElementById('stat-ancestors').textContent = String((body && body.ancestors) || 0);
+  document.getElementById('stat-countries').textContent = String((body && body.countries) || 0);
+  document.getElementById('stat-sharers').textContent = String((body && body.sharers) || 0);
+  const counts = (body && body.ordinances) || {};
+  for (const name of VisibleTotals.ORDINANCES) {
+    const el = document.querySelector('#stat-ordinances [data-name="' + name + '"]');
+    if (el) el.textContent = String(counts[name] || 0);
+  }
+}
+function paintTotals() {
+  if (act !== 'timeline') {
+    paintBody(serverStats);
+    return;
+  }
+  const shown = revealedLights();
+  const partial = VisibleTotals.tally(shown, countryAt);
+  const complete = catalog.size > 0 && shown.length >= catalog.size && serverStats;
+  if (complete) {
+    paintBody(serverStats);
+    return;
+  }
+  paintBody({
+    ancestors: partial.ancestors,
+    countries: partial.countries,
+    sharers: VisibleTotals.sharersShown(shown.length, catalog.size, serverStats && serverStats.sharers),
+    ordinances: partial.ordinances,
+  });
+}
 async function refreshStats() {
   try {
     const response = await fetch('/api/stats', { cache: 'no-store' });
     if (!response.ok) return;
-    const body = await response.json();
-    document.getElementById('stat-ancestors').textContent = String(body.ancestors || 0);
-    document.getElementById('stat-countries').textContent = String(body.countries || 0);
-    document.getElementById('stat-sharers').textContent = String(body.sharers || 0);
-    const counts = body.ordinances || {};
-    for (const name of STAT_ORDINANCES) {
-      const el = document.querySelector('#stat-ordinances [data-name="' + name + '"]');
-      if (el) el.textContent = String(counts[name] || 0);
-    }
+    serverStats = await response.json();
+    paintTotals();
   } catch (error) { /* the next poll retries */ }
 }
 async function poll() {

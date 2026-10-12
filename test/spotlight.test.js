@@ -62,7 +62,7 @@ test('an ordinance update refreshes the same light and does not add another', ()
   const caption = captionFor(rotation.get(first), rotation.all());
   assert.equal(caption.place, 'Cork, Ireland');
   assert.equal(caption.ordinancesText, 'Baptism · Endowment');
-  assert.equal(caption.regionText, '1 light in Ireland');
+  assert.equal(caption.regionText, '1 ancestor in Ireland');
   assert.equal(regionCount(rotation.all(), 'Dublin, Ireland'), 1);
 });
 

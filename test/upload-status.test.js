@@ -58,8 +58,8 @@ test('the upload and TV pages expose the success card and the spotlight', () => 
   assert.match(tv, /<html lang="en">/);
   assert.match(tv, /<title>Temple Ordinance Lights<\/title>/);
   assert.match(tv, /Our Ancestors/);
-  assert.match(tv, /light of temple work this year/);
-  assert.match(tv, /lights of temple work this year/);
+  assert.match(tv, /ancestor this year/);
+  assert.match(tv, /ancestors this year/);
   assert.match(tv, /paintCountriesDuringMove/);
   assert.match(tv, /padding: 0\.8/);
   assert.doesNotMatch(tv, /Nuestros|Antepasados/);
