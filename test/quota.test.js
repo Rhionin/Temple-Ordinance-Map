@@ -90,21 +90,33 @@ test('a file with more than 800 new people is refused and stores nothing', async
   assert.equal(target.lights.length, 0);
 });
 
-test('too many ordinance rows in one file are refused', async () => {
-  const perPerson = 3;
-  const people = Math.floor(MAX_PAST_YEAR_ROWS / perPerson) + 1;
-  const target = store();
+test('three thousand past-year rows are accepted and one more is refused', async () => {
+  assert.equal(MAX_PAST_YEAR_ROWS, 3000);
+  const ordinances = ['Baptism', 'Confirmation', 'Initiatory', 'Endowment'];
+  const atCap = store();
+  const accepted = await handleApi(
+    new Request('http://localhost/api/upload', {
+      method: 'POST',
+      body: peopleCsv(MAX_PAST_YEAR_ROWS / ordinances.length, ordinances),
+    }),
+    { store: atCap }
+  );
+  assert.equal(accepted.status, 200);
+  assert.equal(atCap.jobs.length, MAX_PAST_YEAR_ROWS / ordinances.length);
+
+  const people = Math.floor(MAX_PAST_YEAR_ROWS / ordinances.length) + 1;
+  const over = store();
   const response = await handleApi(
     new Request('http://localhost/api/upload', {
       method: 'POST',
-      body: peopleCsv(people, ['Baptism', 'Confirmation', 'Endowment']),
+      body: peopleCsv(people, ordinances),
     }),
-    { store: target }
+    { store: over }
   );
   const body = await response.json();
   assert.equal(response.status, 413);
   assert.equal(body.error, 'too many rows in one file');
-  assert.equal(target.jobs.length, 0);
+  assert.equal(over.jobs.length, 0);
 });
 
 test('a full geocode queue refuses another file', async () => {
