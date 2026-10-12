@@ -69,6 +69,8 @@ const WORLD = { center: [25, 0], zoom: 2.4 };
 const SPOT_ZOOM = 4.8;
 const DWELL_MS = 9000;
 const map = L.map('map', { zoomControl: false, worldCopyJump: true, renderer: L.svg({ padding: 0.8 }) }).setView(WORLD.center, WORLD.zoom);
+// Leaflet's SVG renderer only redraws paths on moveend. During flyTo it CSS-scales
+// the previous viewport, so the destination is blank until the flight ends.
 function paintCountriesDuringMove() {
   const renderer = map.getRenderer(map);
   map.on('move', () => {
