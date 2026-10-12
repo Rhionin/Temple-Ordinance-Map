@@ -35,6 +35,9 @@ new_sqlite_classes = ["Geocoder"]
 # Deploys do not set or overwrite it. GEOCODE_UA is a plain var.
 [vars]
 GEOCODE_UA = "Temple-Ordinance-Map (rhionin@gmail.com)"
+# Replaced on deploy with the commit SHA (see deploy.yml). "dev" never changes,
+# so a local worker does not reload itself.
+BUILD_ID = "dev"
 
 # Subdomain on the rhionin.com zone (same Cloudflare account). A path on the
 # apex does not match this app's root routes (/ , /tv, /api).

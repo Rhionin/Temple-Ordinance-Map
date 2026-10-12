@@ -34,6 +34,14 @@ test('a stored place with a control character is cleaned on the way to the TV', 
   assert.equal(light.id, undefined);
 });
 
+test('a joiner inside a place name stays', () => {
+  const plan = planUpload(csv('Nam\u200Daste, India', 'Baptism'), {
+    now: Date.parse('2026-10-11T00:00:00Z'),
+    cache: {},
+  });
+  assert.equal(plan.pending[0].place, 'Nam\u200Daste, India');
+});
+
 test('an ordinary place and ordinance are unchanged', () => {
   const plan = planUpload(csv('Ogden, Weber, Utah, United States', 'Baptism'), {
     now: Date.parse('2026-10-11T00:00:00Z'),

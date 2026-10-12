@@ -3,6 +3,7 @@ import { planStep, retryDelay, MIN_GAP_MS } from '../lib/geostep.js';
 import { candidates } from '../lib/places.js';
 import { nominatimUrl, parseNominatimBody } from '../lib/nominatim.js';
 import { nextCreated } from '../lib/lights.js';
+import { countryForLight } from '../lib/country.js';
 
 // One Durable Object paces every Nominatim call for the map. A single
 // coordinator is the rate-limit atom: parallel uploads must still stay at or
@@ -26,7 +27,7 @@ export class Geocoder extends DurableObject {
     let lastFetch = (await this.ctx.storage.get('lastFetch')) || 0;
     for (let step = 0; step < 40; step++) {
       const job = await db.prepare(
-        "SELECT person_id, place, ordinance, created, cursor_idx FROM jobs WHERE status = 'pending' ORDER BY created, person_id LIMIT 1"
+        "SELECT person_id, place, ordinance, created, cursor_idx, month FROM jobs WHERE status = 'pending' ORDER BY created, person_id LIMIT 1"
       ).first();
       if (!job) return;
 
@@ -76,9 +77,9 @@ export class Geocoder extends DurableObject {
       }
 
       await db.prepare(
-        `INSERT INTO geocache (query, lat, lon, cached_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(query) DO UPDATE SET lat = excluded.lat, lon = excluded.lon, cached_at = excluded.cached_at`
-      ).bind(plan.query, coord ? coord.lat : null, coord ? coord.lon : null, Date.now()).run();
+        `INSERT INTO geocache (query, lat, lon, country, cached_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(query) DO UPDATE SET lat = excluded.lat, lon = excluded.lon, country = excluded.country, cached_at = excluded.cached_at`
+      ).bind(plan.query, coord ? coord.lat : null, coord ? coord.lon : null, coord && coord.country ? coord.country : null, Date.now()).run();
 
       if (coord) await finishLight(db, job, coord);
       else {
@@ -99,9 +100,9 @@ async function cacheForPlace(db, place) {
   const cache = {};
   if (!queries.length) return cache;
   const marks = queries.map(() => '?').join(',');
-  const rows = await db.prepare(`SELECT query, lat, lon FROM geocache WHERE query IN (${marks})`).bind(...queries).all();
+  const rows = await db.prepare(`SELECT query, lat, lon, country FROM geocache WHERE query IN (${marks})`).bind(...queries).all();
   for (const row of rows.results || []) {
-    cache[row.query] = row.lat == null || row.lon == null ? null : { lat: row.lat, lon: row.lon };
+    cache[row.query] = row.lat == null || row.lon == null ? null : { lat: row.lat, lon: row.lon, country: row.country || null };
   }
   return cache;
 }
@@ -109,13 +110,14 @@ async function cacheForPlace(db, place) {
 async function finishLight(db, job, coord) {
   const row = await db.prepare('SELECT MAX(created) AS created, MAX(updated) AS updated FROM lights').first();
   const created = nextCreated(Date.now(), Math.max((row && row.created) || 0, (row && row.updated) || 0));
+  const country = countryForLight(coord);
   await db.batch([
     db.prepare(
-      `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated)
-       SELECT ?, ?, ?, ?, ?, ?, ?
+      `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated, month, country)
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
        WHERE EXISTS (SELECT 1 FROM jobs WHERE person_id = ? AND status = 'pending')
        ON CONFLICT(person_id) DO NOTHING`
-    ).bind(job.person_id, job.place, coord.lat, coord.lon, job.ordinance || '', created, created, job.person_id),
+    ).bind(job.person_id, job.place, coord.lat, coord.lon, job.ordinance || '', created, created, job.month || null, country, job.person_id),
     db.prepare("UPDATE jobs SET status = 'done' WHERE person_id = ? AND status = 'pending'").bind(job.person_id),
   ]);
 }
