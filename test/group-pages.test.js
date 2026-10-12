@@ -92,7 +92,9 @@ test('a group upload stays off the other group and off an unknown slug', async (
   const missing = await handleApi(new Request('http://localhost/g/missing/api/lights'), { groups });
   assert.equal(missing.status, 404);
   const info = await handleApi(new Request('http://localhost/g/friends/api/group'), { groups });
-  assert.deepEqual(await info.json(), { slug: 'friends', title: 'Ward', subtitle: 'Bring a list', months: 12 });
+  assert.deepEqual(await info.json(), {
+    slug: 'friends', title: 'Ward', subtitle: 'Bring a list', months: 12, uploadsOpen: '', uploadsClose: '',
+  });
 });
 
 test('the share page, the group map, and /new are served, and an unknown slug is a 404', async () => {
@@ -105,6 +107,7 @@ test('the share page, the group map, and /new are served, and an unknown slug is
     const created = await fetch(base + '/new');
     const party = await fetch(base + '/g/party');
     const map = await fetch(base + '/g/party/map');
+    const admin = await fetch(base + '/g/party/admin');
     const missing = await fetch(base + '/g/missing');
     assert.equal(home.status, 200);
     assert.match(await home.text(), /leaflet.js/);
@@ -115,6 +118,8 @@ test('the share page, the group map, and /new are served, and an unknown slug is
     assert.match(await party.text(), /Choose my list/);
     assert.equal(map.status, 200);
     assert.match(await map.text(), /leaflet.js/);
+    assert.equal(admin.status, 200);
+    assert.match(await admin.text(), /Group admin/);
     assert.equal(missing.status, 404);
     const made = await fetch(base + '/api/groups', {
       method: 'POST',

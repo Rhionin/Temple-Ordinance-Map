@@ -52,5 +52,27 @@ export function directory(db) {
       }
       return this.find(key);
     },
+    async update(slug, fields) {
+      const current = await this.find(slug);
+      if (!current || Number(current.deleted) || Number(current.disabled)) return null;
+      await db.prepare(
+        `UPDATE groups
+         SET title = ?, subtitle = ?, months = ?, uploads_open = ?, uploads_close = ?
+         WHERE id = ?`
+      ).bind(fields.title, fields.subtitle, fields.months, fields.uploadsOpen, fields.uploadsClose, current.id).run();
+      return this.find(slug);
+    },
+    async remove(slug) {
+      const current = await this.find(slug);
+      if (!current || Number(current.deleted)) return false;
+      await db.prepare('UPDATE groups SET deleted = 1 WHERE id = ?').bind(current.id).run();
+      return true;
+    },
+    async replaceToken(slug, tokenHash) {
+      const current = await this.find(slug);
+      if (!current || Number(current.deleted) || Number(current.disabled)) return false;
+      await db.prepare('UPDATE groups SET admin_token_hash = ? WHERE id = ?').bind(tokenHash, current.id).run();
+      return true;
+    },
   };
 }

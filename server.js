@@ -203,6 +203,10 @@ function fileStoreFor(groupId) {
       if (updates.length) save();
       return { ...tally(mine), sharers: 0 };
     },
+    async clearLights() {
+      lights = lights.filter(light => !inGroup(light, groupId));
+      save();
+    },
   };
 }
 groups.store = fileStoreFor;
@@ -299,7 +303,7 @@ const server = http.createServer(async (req, res) => {
       resetPin: process.env.RESET_PIN || '1337',
     }));
   }
-  const groupApi = url.pathname.match(/^\/g\/([^/]+)\/api\/([a-z]+)\/?$/);
+  const groupApi = url.pathname.match(/^\/g\/([^/]+)\/api\/([a-z]+(?:\/[a-z]+)?)\/?$/);
   if (groupApi) {
     let slug = groupApi[1];
     try { slug = decodeURIComponent(slug); } catch (error) { slug = ''; }
@@ -325,7 +329,9 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
-    const request = new Request(url, { method: req.method, headers: req.headers });
+    const init = { method: req.method, headers: req.headers };
+    if (req.method !== 'GET' && req.method !== 'HEAD') init.body = await readBody(req);
+    const request = new Request(url, init);
     return send(res, await handleApi(request, {
       store: fileStore,
       groups,
@@ -359,7 +365,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', 'new.html')));
   }
-  const groupPage = url.pathname.match(/^\/g\/([^/]+)(\/map)?\/?$/);
+  const groupPage = url.pathname.match(/^\/g\/([^/]+)(\/map|\/admin)?\/?$/);
   if (groupPage) {
     let slug = groupPage[1];
     try { slug = decodeURIComponent(slug); } catch (error) { slug = ''; }
@@ -368,7 +374,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end('not found');
     }
-    const file = groupPage[2] ? 'tv.html' : 'upload.html';
+    const file = groupPage[2] === '/map' ? 'tv.html' : groupPage[2] === '/admin' ? 'group-admin.html' : 'upload.html';
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', file)));
   }

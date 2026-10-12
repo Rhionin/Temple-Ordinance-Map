@@ -45,11 +45,12 @@ export default {
       }));
     }
     if (url.pathname === '/new') return assetPage(request, env, '/new.html');
-    const groupPath = url.pathname.match(/^\/g\/([^/]+)(\/map)?\/?$/);
+    const groupPath = url.pathname.match(/^\/g\/([^/]+)(\/map|\/admin)?\/?$/);
     if (groupPath) {
       const group = await groups.find(groupSlug(groupPath[1]));
       if (!publicGroup(group)) return withSecurityHeaders(notFound());
-      return assetPage(request, env, groupPath[2] ? '/tv.html' : '/upload.html');
+      const file = groupPath[2] === '/map' ? '/tv.html' : groupPath[2] === '/admin' ? '/group-admin.html' : '/upload.html';
+      return assetPage(request, env, file);
     }
     const page = PAGES[url.pathname];
     if (page) return assetPage(request, env, page);
