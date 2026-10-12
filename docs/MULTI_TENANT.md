@@ -102,13 +102,13 @@ One Durable Object remains the rate limit for every group. Jobs carry `group_id`
 
 ## Phases
 
-1. Schema, ward backfill, and group id on every light, job, and sharer write, including the geocoder. No new URL yet.
-2. Per-group upload and TV routes. `/` and `/tv` stay the ward.
-3. Master TV and master stats, with the fold above.
-4. Title, subtitle, and time window.
-5. Per-group admin token, PIN, and reset.
-6. Super-admin create, list, and disable.
-7. Queue order and the per-group pending cap.
+1. [Schema, ward backfill, and group id on every light, job, and sharer write](https://github.com/Rhionin/Temple-Ordinance-Map/issues/50), including the geocoder. No new URL yet.
+2. [Per-group upload and TV routes](https://github.com/Rhionin/Temple-Ordinance-Map/issues/51). `/` and `/tv` stay the ward.
+3. [Master TV and master stats](https://github.com/Rhionin/Temple-Ordinance-Map/issues/52), with the fold above.
+4. [Title, subtitle, and time window](https://github.com/Rhionin/Temple-Ordinance-Map/issues/53).
+5. [Per-group admin token, PIN, and reset](https://github.com/Rhionin/Temple-Ordinance-Map/issues/54).
+6. [Super-admin create, list, and disable](https://github.com/Rhionin/Temple-Ordinance-Map/issues/55).
+7. [Queue order and the per-group pending cap](https://github.com/Rhionin/Temple-Ordinance-Map/issues/56).
 
 Phase 2 must not accept a second group's upload until phase 1 writes `group_id` on the finished light. Phases 4 through 7 can land in any order after phase 2. Phase 3 is what makes the combined screen true.
 
