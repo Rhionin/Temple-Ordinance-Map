@@ -18,6 +18,27 @@ const { tally } = require('./lib/stats');
 const { countsAsShare, sharerBasis, hashSharer } = require('./lib/sharers');
 
 const PORT = process.env.PORT || 3000;
+const PUBLIC_ROOT = path.join(__dirname, 'public');
+const TYPES = {
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.png': 'image/png',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+};
+
+function publicFile(urlPath) {
+  let decoded = urlPath;
+  try { decoded = decodeURIComponent(urlPath); } catch { return null; }
+  const target = path.normalize(path.join(PUBLIC_ROOT, decoded));
+  if (target !== PUBLIC_ROOT && !target.startsWith(PUBLIC_ROOT + path.sep)) return null;
+  try {
+    if (!fs.statSync(target).isFile()) return null;
+  } catch {
+    return null;
+  }
+  return target;
+}
 const DATA = path.join(__dirname, 'data');
 const CACHE_F = path.join(DATA, 'geocache.json'), LIGHTS_F = path.join(DATA, 'lights.json'), SHARERS_F = path.join(DATA, 'sharers.json'), UNRES_F = path.join(DATA, 'unresolved.log');
 const UA = process.env.GEOCODE_UA || 'temple-ordinance-map/1.0';
@@ -239,6 +260,12 @@ const server = http.createServer(async (req, res) => {
       buildId,
     }));
   }
+  const asset = publicFile(url.pathname);
+  if (asset) {
+    const type = TYPES[path.extname(asset)] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'public, max-age=86400' });
+    return res.end(fs.readFileSync(asset));
+  }
   res.writeHead(404);
   res.end('not found');
 });
@@ -248,4 +275,4 @@ if (require.main === module) {
   else server.listen(PORT, () => console.log('http://localhost:' + PORT + '  (TV: /tv)'));
 }
 
-module.exports = { server, ingest };
+module.exports = { server, ingest, publicFile };
