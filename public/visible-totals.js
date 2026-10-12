@@ -38,7 +38,18 @@
         if (canon) ordinances[canon]++;
       }
     }
-    return { ancestors: (lights || []).length, countries: countries.size, ordinances };
+    return {
+      ancestors: (lights || []).length,
+      countries: countries.size,
+      ordinances,
+      ordinanceTotal: ordinanceTotal(ordinances),
+    };
+  }
+
+  function ordinanceTotal(counts) {
+    let total = 0;
+    for (const name of ORDINANCES) total += Number(counts && counts[name]) || 0;
+    return total;
   }
 
   function sharersShown(revealed, catalogSize, sharerTotal) {
@@ -48,5 +59,5 @@
     return Number(sharerTotal) || 0;
   }
 
-  return { ORDINANCES, tally, sharersShown };
+  return { ORDINANCES, tally, ordinanceTotal, sharersShown };
 });

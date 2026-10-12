@@ -1,5 +1,5 @@
 // The TV stage is 1920x1080. Totals and the place card live in a right rail
-// beside the map, so a light cannot sit under them. The headline and the
+// beside the map, so a light cannot sit under them. The title and the
 // month line stay on the map. Every camera view uses the same insets, so
 // the open rectangle does not move when a row or a card appears.
 (function (root, factory) {
@@ -11,7 +11,7 @@
   const insets = {
     rail: 500,
     left: 40,
-    top: 188,
+    top: 120,
     right: 40,
     bottom: 176,
   };

@@ -42,7 +42,8 @@ test('the timeline page expands the camera and still flies in spotlight', () => 
   assert.match(tv, /expandTimelineCamera/);
   assert.match(tv, /frameFirstLights/);
   assert.match(tv, /timelineWide = true/);
-  assert.match(tv, /ancestorLabel/);
+  assert.doesNotMatch(tv, /ancestorLabel/);
+  assert.doesNotMatch(tv, /id="count"/);
   assert.doesNotMatch(tv, /focusLights/);
   assert.match(tv, /flyToBounds\(lightBounds\(focusOf\(step\.light\)\)/);
   assert.match(tv, /maxZoom: SPOT_ZOOM/);

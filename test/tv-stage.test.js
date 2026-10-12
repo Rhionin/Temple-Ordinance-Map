@@ -41,12 +41,13 @@ test('visible totals count people and ordinances, and sharers wait until every p
   assert.equal(totals.ordinances['Sealing to Parents'], 1);
   assert.equal(totals.ordinances.Confirmation, 0);
   assert.equal(totals.ordinances.Nope, undefined);
+  assert.equal(totals.ordinanceTotal, 4);
   assert.equal(sharersShown(2, 3, 5), 0);
   assert.equal(sharersShown(3, 3, 5), 5);
   assert.equal(sharersShown(0, 0, 5), 0);
 });
 
-test('the TV is a 16:9 stage, the headline counts ancestors, and timeline reveals name the place', () => {
+test('the TV is a 16:9 stage, the title asks to light a candle, and timeline reveals name the place', () => {
   const tv = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
   assert.match(tv, /id="stage"/);
   assert.match(tv, /width:1920px/);
@@ -57,8 +58,12 @@ test('the TV is a 16:9 stage, the headline counts ancestors, and timeline reveal
   const stageFit = fs.readFileSync(path.join(__dirname, '..', 'public', 'stage-fit.js'), 'utf8');
   assert.match(stageFit, /\/\s*1920/);
   assert.match(stageFit, /\/\s*1080/);
-  assert.match(tv, /ancestor this year/);
-  assert.match(tv, /ancestors this year/);
+  assert.match(tv, /Light a candle for our ancestors/);
+  assert.match(tv, /id="stat-ordinance-total"/);
+  assert.match(tv, /Total ordinances/);
+  assert.doesNotMatch(tv, /id="count"/);
+  assert.doesNotMatch(tv, /Our Ancestors/);
+  assert.doesNotMatch(tv, /Date unknown/);
   assert.doesNotMatch(tv, /lights of temple work this year/);
   assert.match(tv, /visible-totals\.js/);
   assert.match(tv, /country-at\.js/);
