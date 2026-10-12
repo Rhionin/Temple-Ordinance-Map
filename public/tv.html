@@ -411,28 +411,16 @@ document.addEventListener('mousemove', revealReset);
 document.addEventListener('touchstart', revealReset, { passive: true });
 function emptyMap() {
   mapEpoch++;
-  clearTimeout(timer);
-  for (const entry of markers.values()) {
-    clearTimeout(entry.timer);
-    if (entry.marker) map.removeLayer(entry.marker);
-  }
-  markers.clear();
+  timelineGen += 1;
+  catalog.clear();
   spots.clear();
-  rotation.clear();
-  countN = 0;
-  count.textContent = '0';
-  countLabel.textContent = 'lights of temple work this year';
   since = 0;
   ready = true;
-  bloomKey = null;
-  currentKey = null;
-  mode = 'idle';
-  hideCard();
   resetNote.hidden = true;
   resetNote.textContent = '';
   ticker.textContent = '\u00a0';
-  map.flyTo(WORLD.center, WORLD.zoom, flyOpts());
-  timer = setTimeout(runStep, 2000);
+  if (playMode === 'spotlight') startSpotlight();
+  else startTimeline();
 }
 resetBtn.addEventListener('click', async () => {
   const typed = window.prompt('PIN');
