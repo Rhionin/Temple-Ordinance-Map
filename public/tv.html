@@ -35,7 +35,7 @@ opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s 
 }
 </style></head><body>
 <div id="map"></div>
-<div id="hud"><h1>🌼 Our Ancestors 🌼</h1><div><span id="count">0</span> <span style="font-size:28px">lights of temple work this year</span></div></div>
+<div id="hud"><h1>🌼 Our Ancestors 🌼</h1><div><span id="count">0</span> <span id="count-label" style="font-size:28px">lights of temple work this year</span></div></div>
 <div id="ticker">&nbsp;</div>
 <aside id="card" role="status" aria-live="polite" aria-hidden="true">
   <p class="kicker">Featured light</p>
@@ -52,6 +52,7 @@ const map = L.map('map', { zoomControl: false, worldCopyJump: true }).setView(WO
 fetch('/world.geojson').then(r => r.json()).then(g => L.geoJSON(g, { interactive: false, style: { color: '#6b3f8a', weight: .7, fillColor: '#1d1230', fillOpacity: 1 } }).addTo(map).bringToBack());
 map.attributionControl.addAttribution('Natural Earth');
 
+const countLabel = document.getElementById('count-label');
 const cardPlace = document.getElementById('card-place');
 const cardOrd = document.getElementById('card-ord');
 const cardRegion = document.getElementById('card-region');
@@ -112,6 +113,7 @@ function present(light, delay) {
   markers.set(key, entry);
   countN += 1;
   count.textContent = String(countN);
+  countLabel.textContent = countN === 1 ? 'light of temple work this year' : 'lights of temple work this year';
   if (delay > 0) entry.timer = setTimeout(() => paint(entry), delay);
   else paint(entry);
   return entry;
