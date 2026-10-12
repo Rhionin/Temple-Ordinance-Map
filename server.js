@@ -2,8 +2,10 @@
 // Local dev geocodes before the upload response returns. The Worker queues the
 // same rows and resolves them in the background.
 const http = require('http'), fs = require('fs'), path = require('path');
+const { execFileSync } = require('child_process');
 const { handleApi } = require('./lib/http');
 const { securityHeaders } = require('./lib/headers');
+const { resolveBuildId } = require('./lib/build-id');
 const { planUpload } = require('./lib/upload');
 const { candidates } = require('./lib/places');
 const { nominatimUrl, parseNominatimBody } = require('./lib/nominatim');
@@ -11,17 +13,21 @@ const { MIN_GAP_MS } = require('./lib/geostep');
 const { toPublic, nextCreated } = require('./lib/lights');
 const { serializeOrdinances } = require('./lib/ordinances');
 const { analyze, parseDate } = require('./lib/fscsv');
+const { countryForLight, fillCountries } = require('./lib/country');
+const { tally } = require('./lib/stats');
+const { countsAsShare, sharerBasis, hashSharer } = require('./lib/sharers');
 
 const PORT = process.env.PORT || 3000;
 const DATA = path.join(__dirname, 'data');
-const CACHE_F = path.join(DATA, 'geocache.json'), LIGHTS_F = path.join(DATA, 'lights.json'), UNRES_F = path.join(DATA, 'unresolved.log');
+const CACHE_F = path.join(DATA, 'geocache.json'), LIGHTS_F = path.join(DATA, 'lights.json'), SHARERS_F = path.join(DATA, 'sharers.json'), UNRES_F = path.join(DATA, 'unresolved.log');
 const UA = process.env.GEOCODE_UA || 'temple-ordinance-map/1.0';
 const load = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
-let cache = load(CACHE_F, {}), lights = load(LIGHTS_F, []);
+let cache = load(CACHE_F, {}), lights = load(LIGHTS_F, []), sharers = new Set(load(SHARERS_F, []));
 const save = () => {
   fs.mkdirSync(DATA, { recursive: true });
   fs.writeFileSync(CACHE_F, JSON.stringify(cache, null, 1));
   fs.writeFileSync(LIGHTS_F, JSON.stringify(lights));
+  fs.writeFileSync(SHARERS_F, JSON.stringify([...sharers]));
 };
 
 let last = 0;
@@ -63,14 +69,15 @@ function remember(light) {
   save();
   publish(light);
 }
-function touch(light, ordinance, updated) {
+function touch(light, ordinance, updated, month) {
   light.ordinance = ordinance;
   light.updated = updated;
+  if (month && (!light.month || month < light.month)) light.month = month;
   save();
   publish(light);
 }
 
-async function ingest(text) {
+async function ingest(text, sharerHeader) {
   const existing = lights.map(light => ({ id: light.id, ordinance: light.ordinance }));
   const plan = planUpload(text, { existing, cache });
   if (!plan.ok) {
@@ -92,20 +99,30 @@ async function ingest(text) {
     const light = lights.find(item => item.id === merge.id);
     if (!light) continue;
     created = nextCreated(Date.now(), created);
-    touch(light, serializeOrdinances(merge.ordinances), created);
+    touch(light, serializeOrdinances(merge.ordinances), created, merge.month || null);
+  }
+  for (const fix of plan.monthFixes || []) {
+    const light = lights.find(item => item.id === fix.id);
+    if (!light || !fix.month || (light.month && light.month <= fix.month)) continue;
+    created = nextCreated(Date.now(), created);
+    touch(light, light.ordinance, created, fix.month);
   }
   for (const row of plan.immediate) {
     created = nextCreated(Date.now(), created);
-    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, created, updated: created });
+    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, month: row.month || null, country: countryForLight(row), created, updated: created });
   }
   for (const job of plan.pending) {
     const coord = await geocode(job.place);
     plan.stats.queued--;
     if (!coord) { plan.stats.unresolved.push(job.place); continue; }
     created = nextCreated(Date.now(), created);
-    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, created, updated: created });
+    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, month: job.month || null, country: countryForLight(coord), created, updated: created });
     plan.stats.added++;
     plan.stats.geocoded++;
+  }
+  if (countsAsShare(plan.stats)) {
+    const hash = await hashSharer(sharerBasis(sharerHeader, text));
+    if (hash && !sharers.has(hash)) { sharers.add(hash); save(); }
   }
   return plan.stats;
 }
@@ -117,7 +134,18 @@ const fileStore = {
   },
   async clearLights() {
     lights = [];
+    sharers = new Set();
     save();
+  },
+  async noteSharer(hash) {
+    if (!hash || sharers.has(hash)) return;
+    sharers.add(hash);
+    save();
+  },
+  async stats() {
+    const updates = fillCountries(lights);
+    if (updates.length) save();
+    return { ...tally(lights), sharers: sharers.size };
   },
 };
 
@@ -157,7 +185,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/upload') {
     try {
       const body = await readBody(req);
-      const stats = await ingest(body.toString('utf8'));
+      const stats = await ingest(body.toString('utf8'), req.headers['x-sharer']);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(stats));
     } catch (error) {
@@ -167,9 +195,15 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
-  if (url.pathname === '/api/lights' || url.pathname === '/api/reset') {
-    const request = new Request(url, { method: req.method, headers: req.headers });
-    return send(res, await handleApi(request, { store: fileStore, resetToken: process.env.RESET_TOKEN || '' }));
+  if (url.pathname === '/api/lights' || url.pathname === '/api/reset' || url.pathname === '/api/stats') {
+    const init = { method: req.method, headers: req.headers };
+    if (req.method === 'POST' && url.pathname === '/api/reset') init.body = await readBody(req);
+    const request = new Request(url, init);
+    return send(res, await handleApi(request, {
+      store: fileStore,
+      resetToken: process.env.RESET_TOKEN || '',
+      resetPin: process.env.RESET_PIN || '1337',
+    }));
   }
   if (url.pathname === '/api/stream') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
@@ -178,7 +212,7 @@ const server = http.createServer(async (req, res) => {
     req.on('close', () => sseClients.delete(res));
     return;
   }
-  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js' }[url.pathname];
+  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js', '/timeline.js': 'timeline.js', '/version.js': 'version.js' }[url.pathname];
   if (script) {
     res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', script)));
@@ -189,8 +223,21 @@ const server = http.createServer(async (req, res) => {
     return res.end(fs.readFileSync(path.join(__dirname, 'public', 'world.geojson')));
   }
   if (page) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', page)));
+  }
+  if (url.pathname === '/api/version') {
+    const request = new Request(url, { method: req.method, headers: req.headers });
+    const buildId = resolveBuildId(process.env.BUILD_ID, () => execFileSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      cwd: __dirname,
+    }));
+    return send(res, await handleApi(request, {
+      store: fileStore,
+      resetToken: process.env.RESET_TOKEN || '',
+      resetPin: process.env.RESET_PIN || '1337',
+      buildId,
+    }));
   }
   res.writeHead(404);
   res.end('not found');
