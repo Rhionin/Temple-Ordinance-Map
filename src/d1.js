@@ -3,6 +3,8 @@
 // Never a name. created stays put when ordinances are merged; updated moves.
 
 import { serializeOrdinances } from '../lib/ordinances.js';
+import { countryForLight, fillCountries } from '../lib/country.js';
+import { tally } from '../lib/stats.js';
 
 export function d1Store(db) {
   return {
@@ -34,9 +36,9 @@ export function d1Store(db) {
       const cache = {};
       if (!queries.length) return cache;
       const marks = queries.map(() => '?').join(',');
-      const rows = await db.prepare(`SELECT query, lat, lon FROM geocache WHERE query IN (${marks})`).bind(...queries).all();
+      const rows = await db.prepare(`SELECT query, lat, lon, country FROM geocache WHERE query IN (${marks})`).bind(...queries).all();
       for (const row of rows.results || []) {
-        cache[row.query] = row.lat == null || row.lon == null ? null : { lat: row.lat, lon: row.lon };
+        cache[row.query] = row.lat == null || row.lon == null ? null : { lat: row.lat, lon: row.lon, country: row.country || null };
       }
       return cache;
     },
@@ -51,13 +53,14 @@ export function d1Store(db) {
       return rows.results || [];
     },
     async insertLight(light) {
+      const country = countryForLight(light);
       const result = await db.prepare(
-        `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated, month)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated, month, country)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(person_id) DO NOTHING`
       ).bind(
         light.id, light.place, light.lat, light.lon, light.ordinance || '',
-        light.created, light.updated || light.created, light.month || null
+        light.created, light.updated || light.created, light.month || null, country
       ).run();
       return result.meta.changes > 0;
     },
@@ -104,7 +107,21 @@ export function d1Store(db) {
       await db.batch([
         db.prepare('DELETE FROM lights'),
         db.prepare('DELETE FROM jobs'),
+        db.prepare('DELETE FROM sharers'),
       ]);
+    },
+    async noteSharer(hash) {
+      if (!hash) return;
+      await db.prepare('INSERT OR IGNORE INTO sharers (id_hash, created) VALUES (?, ?)').bind(hash, Date.now()).run();
+    },
+    async stats() {
+      const rows = await db.prepare('SELECT person_id, lat, lon, ordinance, country FROM lights').all();
+      const lights = rows.results || [];
+      for (const update of fillCountries(lights)) {
+        await db.prepare('UPDATE lights SET country = ? WHERE person_id = ?').bind(update.country, update.id).run();
+      }
+      const sharers = await db.prepare('SELECT COUNT(*) AS n FROM sharers').first();
+      return { ...tally(lights), sharers: sharers && sharers.n ? sharers.n : 0 };
     },
   };
 }

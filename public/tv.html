@@ -29,18 +29,31 @@ opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s 
 #card h2{margin:8px 0;font-size:30px;font-weight:normal;line-height:1.25;color:#fff1d4}
 #card .ord{margin:0;font-size:20px;line-height:1.4;color:#ffd08a;text-shadow:0 0 12px #ff7a0066}
 #card .region{margin:12px 0 0;font-size:15px;color:#d9c4ae}
+#stats{position:fixed;top:22px;right:72px;z-index:1001;width:min(440px,36vw);padding:16px 22px 12px;color:#fff6e4;
+background:linear-gradient(160deg,rgba(32,18,48,.78),rgba(7,4,12,.62));border:1px solid rgba(255,196,120,.35);border-radius:20px;
+box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
+#stats .stat{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:2px 0}
+#stats .stat b{font-size:64px;line-height:.95;color:#fff3d6;font-weight:bold;text-shadow:0 0 16px #ff9a1a88}
+#stats .stat span{font-size:28px;color:#ffd08a;text-shadow:0 0 10px #ff7a0066}
+#stat-ordinances{list-style:none;margin:10px 0 0;padding:8px 0 0;border-top:1px solid rgba(255,196,120,.3)}
+#stat-ordinances li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:1px 0}
+#stat-ordinances b{font-size:32px;line-height:1.15;color:#fff3d6;font-weight:bold;min-width:2ch;text-align:right}
+#stat-ordinances span{font-size:24px;color:#ffd08a}
 .leaflet-control-attribution{background:#0008!important;color:#776!important}.leaflet-control-attribution a{color:#998!important}
-#reset{position:fixed;top:18px;right:18px;z-index:1001;width:36px;height:36px;padding:0;border:0;border-radius:50%;
+#reset{position:fixed;top:18px;right:18px;z-index:1003;width:36px;height:36px;padding:0;border:0;border-radius:50%;
 background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;cursor:pointer;transition:opacity .4s ease}
 #reset.show,#reset:focus-visible{opacity:.4}
 #reset.show:hover,#reset:focus-visible{opacity:.9}
-#reset-note{position:fixed;top:56px;right:18px;z-index:1001;margin:0;font-size:14px;color:#e7b56a}
+#reset-note{position:fixed;top:56px;right:18px;z-index:1003;margin:0;max-width:220px;text-align:right;font-size:14px;color:#e7b56a}
 @media (max-width:700px){
   #hud{top:14px;left:14px}#hud h1{font-size:26px}#count{font-size:46px}
   #ticker{font-size:18px;padding:12px 16px}
   #card{left:16px;right:16px;bottom:72px;width:auto;padding:16px 18px}
   #card h2{font-size:24px}#card .ord{font-size:17px}
   #month-label{font-size:36px}#timeline{padding-bottom:18px}
+  #stats{top:8px;right:52px;width:auto;padding:8px 10px}
+  #stats .stat b{font-size:28px}#stats .stat span{font-size:13px}
+  #stat-ordinances b{font-size:16px}#stat-ordinances span{font-size:12px}
 }
 @media (prefers-reduced-motion:reduce){
   .glow,.glow.bloom{animation:none}
@@ -49,6 +62,19 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 </style></head><body>
 <div id="map"></div>
 <div id="hud"><h1>🌼 Our Ancestors 🌼</h1><div><span id="count">0</span> <span id="count-label" style="font-size:28px">lights of temple work this year</span></div></div>
+<aside id="stats" aria-label="Temple work totals">
+  <div class="stat"><b id="stat-ancestors">0</b><span>ancestors</span></div>
+  <div class="stat"><b id="stat-countries">0</b><span>countries</span></div>
+  <div class="stat"><b id="stat-sharers">0</b><span>people shared</span></div>
+  <ul id="stat-ordinances">
+    <li><b data-name="Baptism">0</b><span>Baptism</span></li>
+    <li><b data-name="Confirmation">0</b><span>Confirmation</span></li>
+    <li><b data-name="Initiatory">0</b><span>Initiatory</span></li>
+    <li><b data-name="Endowment">0</b><span>Endowment</span></li>
+    <li><b data-name="Sealing to Parents">0</b><span>Sealing to Parents</span></li>
+    <li><b data-name="Sealing to Spouse">0</b><span>Sealing to Spouse</span></li>
+  </ul>
+</aside>
 <div id="ticker">&nbsp;</div>
 <div id="timeline" hidden>
   <p id="month-label">This year</p>
@@ -362,10 +388,27 @@ function rememberLight(light) {
   catalog.set(Spotlight.lightKey(light), light);
   noteSince(light);
 }
+const STAT_ORDINANCES = ['Baptism', 'Confirmation', 'Initiatory', 'Endowment', 'Sealing to Parents', 'Sealing to Spouse'];
+async function refreshStats() {
+  try {
+    const response = await fetch('/api/stats', { cache: 'no-store' });
+    if (!response.ok) return;
+    const body = await response.json();
+    document.getElementById('stat-ancestors').textContent = String(body.ancestors || 0);
+    document.getElementById('stat-countries').textContent = String(body.countries || 0);
+    document.getElementById('stat-sharers').textContent = String(body.sharers || 0);
+    const counts = body.ordinances || {};
+    for (const name of STAT_ORDINANCES) {
+      const el = document.querySelector('#stat-ordinances [data-name="' + name + '"]');
+      if (el) el.textContent = String(counts[name] || 0);
+    }
+  } catch (error) { /* the next poll retries */ }
+}
 async function poll() {
   if (polling) return;
   polling = true;
   const epoch = mapEpoch;
+  const statsTask = refreshStats();
   try {
     const response = await fetch('/api/lights?since=' + since, { cache: 'no-store' });
     const rows = await response.json();
@@ -398,7 +441,7 @@ async function poll() {
     }
     if (arrived) wake();
   } catch (error) { /* keep the map up; the next poll retries */ }
-  finally { polling = false; }
+  finally { polling = false; await statsTask; }
 }
 const RESET_PIN = '1337';
 const resetBtn = document.getElementById('reset');
