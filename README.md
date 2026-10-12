@@ -66,22 +66,23 @@ curl -X POST -H "Authorization: Bearer $RESET_TOKEN" https://lights.rhionin.com/
 
 ## How it works
 
-- `POST /api/upload` (raw CSV body) parses the file, keeps dates on or after today−1 year, and dedupes by FamilySearch person ID across uploads.
+- `POST /api/upload` (raw CSV body) parses the file, keeps dates on or after today−1 year, and dedupes by FamilySearch person ID across uploads. One person is one light. If the list has more than one ordinance for that person, those types are merged onto the light.
 - Places already in the geocode cache become lights immediately. The rest are queued. On the Worker, a Durable Object alarm calls Nominatim at least 1.1 s apart and writes each light as it resolves. Locally, Node does that pacing inside the upload request.
 - Fallbacks: full place → parish/sogn/amt/county words stripped → first + last segment → drop leading segments → drop trailing segments. Failed lookups are cached so they are not retried. The Node server also appends them to `data/unresolved.log`.
-- `GET /api/lights?since=<unix ms>` returns place, lat, lon, and created time for lights newer than `since`. The TV page polls this about every 2 seconds. The local server still offers `/api/stream` (SSE); the page does not depend on it.
+- `GET /api/lights?since=<unix ms>` returns place, lat, lon, created time, updated time, and ordinance types for lights newer than `since` (a light whose ordinance list just grew is included). The TV page polls this about every 2 seconds. The local server still offers `/api/stream` (SSE); the page does not depend on it.
 - `POST /api/reset` with `Authorization: Bearer $RESET_TOKEN` deletes lights and pending geocode jobs. It does not delete the place cache. If `RESET_TOKEN` is unset, the route responds 503.
 - The upload page detects iPhone vs Android (override with `?os=ios|android`) and explains how to open the list in the mobile browser.
   FamilySearch's apple-app-site-association claims `/temple/completed` and `/*/temple/completed` for the Family Tree app, so the button uses the trailing-slash URL `/en/temple/completed/` plus a copy-and-paste fallback (typed URLs open in the browser).
 - The file input accepts `.csv`, `.txt`, and `text/csv`. The page checks for a qualifying-event column instead of trusting the filename.
-- TV page `/tv`: Leaflet plus self-hosted Natural Earth country outlines (no tile key), glowing flickering lights, a counter, and a place ticker.
+- After an upload, the page confirms how many past-year ordinances were found, how many lights are new, and how many were already on the map, then links to `/tv`. While places are still being found, that new-light count updates.
+- TV page `/tv`: Leaflet plus self-hosted Natural Earth country outlines (no tile key), glowing flickering lights, a counter, and a place ticker. About every 9 seconds the view pans to one light, that light blooms, and a card shows its place and ordinance types (and how many lights share that country). Newly arrived lights go first. The rest play in a shuffled order with no repeat until each has been shown. Every fourth light, the view returns to the whole world. With a single light it alternates between that light and the world. With none, it stays on the world.
 
 Other hosts (Render, Fly.io, Railway) can still run `node server.js`. The process honors `PORT`. Put `data/` on a persistent disk, or accept a fresh start.
 
 ## Privacy
 
-- Names are never stored. Uploads are processed in memory. Each light stores a FamilySearch person ID (dedupe only), place, lat/lon, ordinance type, and the time it was created.
-- The TV page and `/api/lights` expose place names, coordinates, and that created time so the display can ask for new lights. They do not expose names, person IDs, ordinance types, or temples.
+- Names are never stored. Uploads are processed in memory. Each light stores a FamilySearch person ID (dedupe only), place, lat/lon, the ordinance types for that person, and timestamps. The ID is not shown.
+- The TV page and `/api/lights` expose place names, coordinates, ordinance types, and timestamps so the display can ask for new lights and caption them. They do not expose names, person IDs, or temples.
 - Place strings are sent to OpenStreetMap Nominatim for geocoding. Names and IDs are not sent.
 - `POST /api/reset`, or deleting `data/lights.json` locally, clears lights when you are done. The place cache can stay.
 - People share their own lists voluntarily. This app does not use the FamilySearch API or any FamilySearch credentials.

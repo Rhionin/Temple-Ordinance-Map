@@ -4,6 +4,7 @@ const { simulateGeocode, MIN_GAP_MS, retryDelay } = require('../lib/geostep');
 const { handleApi } = require('../lib/http');
 const { tokensMatch } = require('../lib/token');
 const { PUBLIC_KEYS } = require('../lib/lights');
+const { parseOrdinances, serializeOrdinances } = require('../lib/ordinances');
 
 const NOW = Date.parse('2026-10-11T00:00:00Z');
 const en = fs.readFileSync(path.join(__dirname, 'fixtures', 'synthetic-en.csv'), 'utf8');
@@ -17,15 +18,37 @@ function memoryStore(seed = {}) {
     async ids() {
       return [...lights.map(light => light.id), ...jobs.filter(job => job.status !== 'failed').map(job => job.id)];
     },
+    async known() {
+      return [
+        ...lights.map(light => ({ id: light.id, ordinance: light.ordinance })),
+        ...jobs.filter(job => job.status !== 'failed').map(job => ({ id: job.id, ordinance: job.ordinance })),
+      ];
+    },
     async maxCreated() {
-      return Math.max(0, ...lights.map(light => light.created || 0), ...jobs.map(job => job.created || 0));
+      return Math.max(0, ...lights.flatMap(light => [light.created || 0, light.updated || 0]), ...jobs.map(job => job.created || 0));
     },
     async cacheFor(queries) {
       const found = {};
       for (const query of queries) if (Object.prototype.hasOwnProperty.call(cache, query)) found[query] = cache[query];
       return found;
     },
-    async listLights(since) { return lights.filter(light => light.created > since); },
+    async listLights(since) {
+      return lights.filter(light => Math.max(light.created || 0, light.updated || 0) > since);
+    },
+    async mergeOrdinances(merge) {
+      const light = lights.find(existing => existing.id === merge.id);
+      if (light) {
+        light.ordinance = serializeOrdinances(merge.ordinance);
+        light.updated = merge.updated;
+        return true;
+      }
+      const job = jobs.find(existing => existing.id === merge.id && existing.status !== 'failed');
+      if (job) {
+        job.ordinance = serializeOrdinances(merge.ordinance);
+        return true;
+      }
+      return false;
+    },
     async insertLight(light) {
       if (lights.some(existing => existing.id === light.id)) return false;
       lights.push({ ...light });
@@ -66,6 +89,7 @@ test('upload plan keeps recent rows, drops names, and queues geocoding', () => {
   }
   assert.ok(plan.pending.some(job => job.place === 'Cork, Ireland'));
   assert.ok(!plan.pending.some(job => job.id === 'ABCD-125'));
+  assert.deepEqual(JSON.parse(plan.pending.find(job => job.id === 'ABCD-123').ordinance), ['Baptism']);
 });
 
 test('cached places become lights immediately and duplicates are skipped', () => {
@@ -151,9 +175,12 @@ test('api upload queues work, hides private fields, and reset requires the token
   assert.equal(body.length, 1);
   assert.equal(body[0].place, 'Bergen, Norway');
   assert.deepEqual(Object.keys(body[0]).sort(), [...PUBLIC_KEYS].sort());
+  assert.deepEqual(body[0].ordinances, ['Endowment']);
+  assert.equal(body[0].updated, 20);
   assert.equal(body[0].name, undefined);
   assert.equal(body[0].id, undefined);
   assert.equal(body[0].ordinance, undefined);
+  assert.equal(body[0].temple, undefined);
 
   assert.equal((await handleApi(req('/api/reset', { method: 'POST' }), { store, resetToken: '' })).status, 503);
   assert.equal((await handleApi(req('/api/reset', { method: 'POST', headers: { authorization: 'Bearer wrong' } }), { store, resetToken: 's3cret' })).status, 401);
@@ -176,9 +203,12 @@ test('oversized uploads are rejected before they are parsed', async () => {
 test('d1 migration stores deduped lights and the public query omits ids', () => {
   const { DatabaseSync } = require('node:sqlite');
   const db = new DatabaseSync(':memory:');
-  db.exec(fs.readFileSync(path.join(__dirname, '..', 'migrations', '0001_init.sql'), 'utf8'));
+  const dir = path.join(__dirname, '..', 'migrations');
+  for (const name of fs.readdirSync(dir).filter(file => file.endsWith('.sql')).sort()) {
+    db.exec(fs.readFileSync(path.join(dir, name), 'utf8'));
+  }
   const columns = db.prepare('PRAGMA table_info(lights)').all().map(column => column.name);
-  assert.deepEqual(columns, ['person_id', 'place', 'lat', 'lon', 'ordinance', 'created']);
+  assert.deepEqual(columns, ['person_id', 'place', 'lat', 'lon', 'ordinance', 'created', 'updated']);
   assert.ok(!columns.includes('name'));
   const insert = db.prepare('INSERT INTO lights (person_id, place, lat, lon, ordinance, created) VALUES (?, ?, ?, ?, ?, ?)');
   insert.run('ABCD-123', 'Cork, Ireland', 51.9, -8.47, 'Endowment', 10);
@@ -187,8 +217,72 @@ test('d1 migration stores deduped lights and the public query omits ids', () => 
   assert.deepEqual(jobColumns, ['person_id', 'place', 'ordinance', 'created', 'cursor_idx', 'status']);
   const cacheColumns = db.prepare('PRAGMA table_info(geocache)').all().map(column => column.name);
   assert.deepEqual(cacheColumns, ['query', 'lat', 'lon', 'cached_at']);
-  const pub = db.prepare('SELECT place, lat, lon, created FROM lights WHERE created > ? ORDER BY created').all(0);
-  assert.deepEqual(Object.keys(pub[0]).sort(), ['created', 'lat', 'lon', 'place']);
+  const pub = db.prepare(
+    'SELECT place, lat, lon, ordinance, created, updated FROM lights WHERE created > ? OR updated > ? ORDER BY created'
+  ).all(0, 0);
+  assert.deepEqual(Object.keys(pub[0]).sort(), ['created', 'lat', 'lon', 'ordinance', 'place', 'updated']);
+  assert.equal(pub[0].person_id, undefined);
+});
+
+function csv(rows) {
+  const header = '"Person","Id Number","Qualifying Event","Ordinances","Date","Temple"\n';
+  return header + rows.map(row => (
+    `"N","${row.id}","Birth, 1900, ${row.place}","${row.ordinance}","15 September 2026","Temple"`
+  )).join('\n');
+}
+
+test('two ordinances for one new person become one queued light', () => {
+  const text = csv([
+    { id: 'ABCD-123', place: 'Ogden, Weber, Utah, United States', ordinance: 'Baptism' },
+    { id: 'ABCD-123', place: 'Ogden, Weber, Utah, United States', ordinance: 'Endowment' },
+  ]);
+  const plan = planUpload(text, { now: NOW, existingIds: new Set(), cache: {} });
+  assert.equal(plan.pending.length, 1);
+  assert.equal(plan.stats.queued, 1);
+  assert.equal(plan.stats.duplicate, 0);
+  assert.equal(plan.stats.pastYear, 2);
+  assert.deepEqual(JSON.parse(plan.pending[0].ordinance), ['Baptism', 'Endowment']);
+});
+
+test('a new ordinance merges onto the existing person instead of a second light', async () => {
+  const store = memoryStore({
+    lights: [{
+      id: 'ABCD-123', place: 'Ogden, Weber, Utah, United States', lat: 41.22, lon: -111.97,
+      ordinance: '["Baptism"]', created: 5, updated: 5,
+    }],
+  });
+  const text = csv([
+    { id: 'ABCD-123', place: 'Ogden, Weber, Utah, United States', ordinance: 'Endowment' },
+  ]);
+  const response = await handleApi(req('/api/upload', { method: 'POST', body: text }), { store });
+  const stats = await response.json();
+  assert.equal(stats.merged, 1);
+  assert.equal(stats.added, 0);
+  assert.equal(stats.queued, 0);
+  assert.equal(store.lights.length, 1);
+  assert.equal(store.lights[0].created, 5);
+  assert.ok(store.lights[0].updated > 5);
+  assert.deepEqual(parseOrdinances(store.lights[0].ordinance), ['Baptism', 'Endowment']);
+  const listed = await handleApi(req('/api/lights?since=5'), { store });
+  const body = await listed.json();
+  assert.equal(body.length, 1);
+  assert.deepEqual(body[0].ordinances, ['Baptism', 'Endowment']);
+  assert.equal(body[0].created, 5);
+  assert.equal(body[0].id, undefined);
+});
+
+test('the same ordinance again is still a duplicate', () => {
+  const text = csv([
+    { id: 'ABCD-123', place: 'Ogden, Weber, Utah, United States', ordinance: 'baptism' },
+  ]);
+  const plan = planUpload(text, {
+    now: NOW,
+    existing: [{ id: 'ABCD-123', ordinance: 'Baptism' }],
+    cache: {},
+  });
+  assert.equal(plan.stats.duplicate, 1);
+  assert.equal(plan.stats.merged, 0);
+  assert.deepEqual(plan.merges, []);
 });
 
 test('wrangler config has no account id and keeps the Tests-sized placeholder database id', () => {

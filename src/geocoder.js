@@ -107,15 +107,15 @@ async function cacheForPlace(db, place) {
 }
 
 async function finishLight(db, job, coord) {
-  const row = await db.prepare('SELECT MAX(created) AS created FROM lights').first();
-  const created = nextCreated(Date.now(), row && row.created);
+  const row = await db.prepare('SELECT MAX(created) AS created, MAX(updated) AS updated FROM lights').first();
+  const created = nextCreated(Date.now(), Math.max((row && row.created) || 0, (row && row.updated) || 0));
   await db.batch([
     db.prepare(
-      `INSERT INTO lights (person_id, place, lat, lon, ordinance, created)
-       SELECT ?, ?, ?, ?, ?, ?
+      `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated)
+       SELECT ?, ?, ?, ?, ?, ?, ?
        WHERE EXISTS (SELECT 1 FROM jobs WHERE person_id = ? AND status = 'pending')
        ON CONFLICT(person_id) DO NOTHING`
-    ).bind(job.person_id, job.place, coord.lat, coord.lon, job.ordinance || '', created, job.person_id),
+    ).bind(job.person_id, job.place, coord.lat, coord.lon, job.ordinance || '', created, created, job.person_id),
     db.prepare("UPDATE jobs SET status = 'done' WHERE person_id = ? AND status = 'pending'").bind(job.person_id),
   ]);
 }
