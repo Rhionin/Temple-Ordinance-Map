@@ -17,6 +17,11 @@ test('deploy workflow tests, migrates, then deploys without calling reset', () =
   const yml = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'deploy.yml'), 'utf8');
   assert.match(yml, /branches: \[main\]/);
   assert.match(yml, /workflow_dispatch/);
+  assert.match(yml, /group: deploy-\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}/);
+  assert.match(yml, /cancel-in-progress: false/);
+  assert.match(yml, /attempt=1/);
+  assert.match(yml, /\[ "\$attempt" -ge 3 \]/);
+  assert.match(yml, /sleep 60/);
   assert.match(yml, /node-version: '22'/);
   assert.match(yml, /node --test test\//);
   assert.match(yml, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
