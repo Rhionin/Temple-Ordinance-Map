@@ -10,7 +10,8 @@ function expectHardened(headers) {
   assert.equal(headers.get('permissions-policy'), 'camera=(), microphone=(), geolocation=()');
   const csp = headers.get('content-security-policy');
   assert.match(csp, /default-src 'self'/);
-  assert.match(csp, /script-src 'self' 'unsafe-inline' https:\/\/unpkg\.com/);
+  assert.match(csp, /script-src 'self' 'unsafe-inline'/);
+  assert.equal(csp.includes('unpkg.com'), false);
   assert.match(csp, /connect-src 'self'/);
   assert.match(csp, /frame-ancestors 'none'/);
 }
