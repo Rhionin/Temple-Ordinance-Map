@@ -5,6 +5,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# One deploy for this ref at a time. A second push waits in the queue.
+# cancel-in-progress stays false so a running Cloudflare call is not aborted.
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy
@@ -24,4 +30,16 @@ jobs:
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply temple-ordinance-map --remote
       - name: Deploy Worker
-        run: npx wrangler deploy --var BUILD_ID:${{ github.sha }}
+        run: |
+          attempt=1
+          while true; do
+            if npx wrangler deploy --var BUILD_ID:${{ github.sha }}; then
+              exit 0
+            fi
+            if [ "$attempt" -ge 3 ]; then
+              exit 1
+            fi
+            echo "Deploy Worker failed on attempt ${attempt} of 3; retrying in 60s"
+            sleep 60
+            attempt=$((attempt + 1))
+          done
