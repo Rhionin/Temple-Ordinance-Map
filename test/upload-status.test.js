@@ -45,8 +45,15 @@ test('the upload and TV pages expose the success card and the spotlight', () => 
   assert.match(upload, /id="see-map" href="\/tv"/);
   assert.match(upload, /See the map/);
   assert.match(upload, /class="candles"/);
+  assert.match(upload, /<html lang="en">/);
+  assert.match(upload, /<title>Light a candle 🕯️<\/title>/);
+  assert.doesNotMatch(upload, /Nuestros|Antepasados/);
   const tv = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
   assert.match(tv, /spotlight\.js/);
   assert.match(tv, /id="card"/);
   assert.match(tv, /flick 2\.4s/);
+  assert.match(tv, /<html lang="en">/);
+  assert.match(tv, /<title>Temple Ordinance Lights<\/title>/);
+  assert.match(tv, /Our Ancestors/);
+  assert.doesNotMatch(tv, /Nuestros|Antepasados/);
 });
