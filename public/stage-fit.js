@@ -40,5 +40,43 @@
     };
   }
 
-  return { fit, containerPoint };
+  // The layout viewport (innerHeight / 100vh) includes space under the browser
+  // toolbar. The stage has to fit the visible box instead, then sit in the
+  // middle of that box so the toolbar does not clip the top and the bottom.
+  function visibleBox(view) {
+    const source = view || {};
+    const vv = source.visualViewport;
+    if (vv && Number(vv.width) > 0 && Number(vv.height) > 0) {
+      return {
+        width: Number(vv.width),
+        height: Number(vv.height),
+        left: Number(vv.offsetLeft) || 0,
+        top: Number(vv.offsetTop) || 0,
+      };
+    }
+    const probe = source.probe;
+    if (probe && Number(probe.width) > 0 && Number(probe.height) > 0) {
+      return {
+        width: Number(probe.width),
+        height: Number(probe.height),
+        left: Number(probe.left) || 0,
+        top: Number(probe.top) || 0,
+      };
+    }
+    return {
+      width: Number(source.innerWidth) || 0,
+      height: Number(source.innerHeight) || 0,
+      left: 0,
+      top: 0,
+    };
+  }
+
+  function centerOf(box) {
+    return {
+      x: box.left + box.width / 2,
+      y: box.top + box.height / 2,
+    };
+  }
+
+  return { fit, containerPoint, visibleBox, centerOf };
 });
