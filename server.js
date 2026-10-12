@@ -3,6 +3,7 @@
 // same rows and resolves them in the background.
 const http = require('http'), fs = require('fs'), path = require('path');
 const { handleApi } = require('./lib/http');
+const { securityHeaders } = require('./lib/headers');
 const { planUpload } = require('./lib/upload');
 const { candidates } = require('./lib/places');
 const { nominatimUrl, parseNominatimBody } = require('./lib/nominatim');
@@ -143,6 +144,15 @@ function send(res, response) {
 }
 
 const server = http.createServer(async (req, res) => {
+  const writeHead = res.writeHead;
+  res.writeHead = function (status, headers) {
+    const merged = headers && typeof headers === 'object' ? { ...headers } : {};
+    for (const [key, value] of Object.entries(securityHeaders())) {
+      const present = Object.keys(merged).some(name => name.toLowerCase() === key.toLowerCase());
+      if (!present) merged[key] = value;
+    }
+    return writeHead.call(this, status, merged);
+  };
   const url = new URL(req.url, 'http://localhost');
   if (req.method === 'POST' && url.pathname === '/api/upload') {
     try {
