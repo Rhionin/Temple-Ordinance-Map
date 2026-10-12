@@ -40,6 +40,7 @@ function world(jobCount, { cached = true } = {}) {
             first: () => statement.first(),
             all: () => statement.all(args),
             run: () => statement.run(args),
+            _select: sql.includes('FROM geocache'),
           };
         },
         async first() {
@@ -108,7 +109,9 @@ function world(jobCount, { cached = true } = {}) {
       return statement;
     },
     batch(statements) {
-      return Promise.all(statements.map(statement => statement.run()));
+      return Promise.all(statements.map(statement => (
+        statement._select ? statement.all() : statement.run()
+      )));
     },
   };
 
