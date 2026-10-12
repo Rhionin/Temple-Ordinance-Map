@@ -244,6 +244,7 @@ test('reset accepts PIN 1337, rejects a wrong PIN, and keeps the geocode cache',
   assert.match(html, /mousemove/);
   assert.match(html, /touchstart/);
   assert.match(html, /That PIN is not right/);
+  assert.match(html, /mapEpoch/);
 });
 
 test('oversized uploads are rejected before they are parsed', async () => {

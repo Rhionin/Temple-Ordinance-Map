@@ -108,6 +108,7 @@ const catalog = new Map();
 let since = 0;
 let ready = false;
 let polling = false;
+let mapEpoch = 0;
 let countN = 0;
 let bloomKey = null;
 let currentKey = null;
@@ -362,9 +363,11 @@ function rememberLight(light) {
 async function poll() {
   if (polling) return;
   polling = true;
+  const epoch = mapEpoch;
   try {
     const response = await fetch('/api/lights?since=' + since, { cache: 'no-store' });
     const rows = await response.json();
+    if (epoch !== mapEpoch) return;
     if (!Array.isArray(rows)) return;
     if (!ready) {
       rows.forEach(rememberLight);
@@ -407,6 +410,7 @@ function revealReset() {
 document.addEventListener('mousemove', revealReset);
 document.addEventListener('touchstart', revealReset, { passive: true });
 function emptyMap() {
+  mapEpoch++;
   clearTimeout(timer);
   for (const entry of markers.values()) {
     clearTimeout(entry.timer);
@@ -424,6 +428,8 @@ function emptyMap() {
   currentKey = null;
   mode = 'idle';
   hideCard();
+  resetNote.hidden = true;
+  resetNote.textContent = '';
   ticker.textContent = '\u00a0';
   map.flyTo(WORLD.center, WORLD.zoom, flyOpts());
   timer = setTimeout(runStep, 2000);
