@@ -2,7 +2,8 @@
 <title>Temple Ordinance Lights</title>
 <link rel="stylesheet" href="/vendor/leaflet.css"><script src="/vendor/leaflet.js"></script>
 <style>
-html,body{margin:0;height:100%;overflow:hidden;background:#07040c;font-family:Georgia,serif}
+html,body{margin:0;height:100%;height:100svh;height:100dvh;overflow:hidden;background:#07040c;font-family:Georgia,serif}
+#vv-probe{position:fixed;left:0;top:0;width:100%;width:100vw;height:100%;height:100vh;height:100svh;height:100dvh;visibility:hidden;pointer-events:none}
 #stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform:translate(-50%,-50%) rotate(var(--turn,0deg)) scale(var(--fit,1));transform-origin:center center;background:#07040c}
 #map{position:absolute;left:0;top:0;width:var(--map-w,1420px);height:1080px;background:#07040c;visibility:hidden}
 #rail{position:absolute;top:0;right:0;width:var(--rail,500px);height:1080px;z-index:1000;background:#07040c;border-left:1px solid rgba(255,196,120,.28);pointer-events:none}
@@ -55,6 +56,7 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
   #card{transition:none}
 }
 </style></head><body>
+<div id="vv-probe" aria-hidden="true"></div>
 <div id="stage">
 <div id="map"></div>
 <div id="hud"><h1>🌼 Our Ancestors 🌼</h1><div><span id="count">0</span> <span id="count-label">ancestors</span></div></div>
@@ -97,11 +99,24 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 <script src="/stage-frame.js"></script>
 <script>
 function fitStage() {
+  const probe = document.getElementById('vv-probe');
+  const view = StageFit.visibleBox({
+    visualViewport: window.visualViewport,
+    probe: probe ? { width: probe.clientWidth, height: probe.clientHeight, left: 0, top: 0 } : null,
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+  });
   const portrait = window.matchMedia('(orientation: portrait)').matches;
-  const box = StageFit.fit(window.innerWidth, window.innerHeight, portrait);
+  const box = StageFit.fit(view.width, view.height, portrait);
+  const center = StageFit.centerOf(view);
   const root = document.documentElement;
   root.style.setProperty('--fit', String(box.fit));
   root.style.setProperty('--turn', box.turn);
+  const stage = document.getElementById('stage');
+  if (stage) {
+    stage.style.left = center.x + 'px';
+    stage.style.top = center.y + 'px';
+  }
 }
 fitStage();
 function applyFrame() {
@@ -113,6 +128,10 @@ applyFrame();
 window.addEventListener('resize', fitStage);
 window.addEventListener('orientationchange', fitStage);
 window.matchMedia('(orientation: portrait)').addEventListener('change', fitStage);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitStage);
+  window.visualViewport.addEventListener('scroll', fitStage);
+}
 function stageTurned() {
   return document.documentElement.style.getPropertyValue('--turn').trim() === '90deg';
 }

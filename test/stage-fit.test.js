@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { fit, containerPoint } = require('../public/stage-fit');
+const { fit, containerPoint, visibleBox, centerOf } = require('../public/stage-fit');
 
 function placed(width, height) {
   const portrait = height >= width;
@@ -47,11 +47,49 @@ test('a rotated click lands on the same stage point the finger is over', () => {
   assert.ok(Math.abs(plain.y - 40) < 0.01);
 });
 
+test('a toolbar-sized viewport letterboxes the whole stage', () => {
+  const visible = visibleBox({
+    visualViewport: { width: 915, height: 280, offsetLeft: 0, offsetTop: 48 },
+    innerWidth: 915,
+    innerHeight: 412,
+  });
+  assert.equal(visible.width, 915);
+  assert.equal(visible.height, 280);
+  assert.equal(visible.top, 48);
+  const box = fit(visible.width, visible.height, false);
+  const visualW = 1920 * box.fit;
+  const visualH = 1080 * box.fit;
+  assert.ok(Math.abs(visualH - 280) < 0.01);
+  assert.ok(visualW < 915);
+  const center = centerOf(visible);
+  assert.ok(center.y - visualH / 2 >= visible.top - 0.01);
+  assert.ok(center.y + visualH / 2 <= visible.top + visible.height + 0.01);
+  assert.ok(center.x - visualW / 2 >= visible.left - 0.01);
+  assert.ok(center.x + visualW / 2 <= visible.left + visible.width + 0.01);
+
+  const probed = visibleBox({
+    probe: { width: 390, height: 664, left: 0, top: 0 },
+    innerWidth: 390,
+    innerHeight: 844,
+  });
+  assert.equal(probed.height, 664);
+  assert.equal(probed.width, 390);
+  const phone = fit(probed.width, probed.height, true);
+  assert.equal(phone.turn, '90deg');
+  assert.ok(1080 * phone.fit <= probed.width + 0.01);
+  assert.ok(1920 * phone.fit <= probed.height + 0.01);
+});
+
 test('the TV page turns only itself, and the upload page does not', () => {
   const tv = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
   const upload = fs.readFileSync(path.join(__dirname, '..', 'public', 'upload.html'), 'utf8');
   assert.match(tv, /stage-fit\.js/);
-  assert.match(tv, /StageFit\.fit\(window\.innerWidth,\s*window\.innerHeight/);
+  assert.match(tv, /StageFit\.visibleBox/);
+  assert.match(tv, /visualViewport/);
+  assert.match(tv, /100svh/);
+  assert.match(tv, /100dvh/);
+  assert.match(tv, /visualViewport\.addEventListener\('resize', fitStage\)/);
+  assert.match(tv, /visualViewport\.addEventListener\('scroll', fitStage\)/);
   assert.match(tv, /orientation:\s*portrait/);
   assert.match(tv, /rotate\(var\(--turn/);
   assert.match(tv, /containerPoint/);

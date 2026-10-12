@@ -52,7 +52,8 @@ test('the TV is a 16:9 stage, the headline counts ancestors, and timeline reveal
   assert.match(tv, /width:1920px/);
   assert.match(tv, /height:1080px/);
   assert.match(tv, /stage-fit\.js/);
-  assert.match(tv, /StageFit\.fit\(window\.innerWidth,\s*window\.innerHeight/);
+  assert.match(tv, /StageFit\.visibleBox/);
+  assert.match(tv, /StageFit\.fit\(view\.width,\s*view\.height/);
   const stageFit = fs.readFileSync(path.join(__dirname, '..', 'public', 'stage-fit.js'), 'utf8');
   assert.match(stageFit, /\/\s*1920/);
   assert.match(stageFit, /\/\s*1080/);
