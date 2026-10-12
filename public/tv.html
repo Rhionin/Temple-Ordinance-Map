@@ -30,6 +30,11 @@ opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s 
 #card .ord{margin:0;font-size:20px;line-height:1.4;color:#ffd08a;text-shadow:0 0 12px #ff7a0066}
 #card .region{margin:12px 0 0;font-size:15px;color:#d9c4ae}
 .leaflet-control-attribution{background:#0008!important;color:#776!important}.leaflet-control-attribution a{color:#998!important}
+#reset{position:fixed;top:18px;right:18px;z-index:1001;width:36px;height:36px;padding:0;border:0;border-radius:50%;
+background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;cursor:pointer;transition:opacity .4s ease}
+#reset.show,#reset:focus-visible{opacity:.4}
+#reset.show:hover,#reset:focus-visible{opacity:.9}
+#reset-note{position:fixed;top:56px;right:18px;z-index:1001;margin:0;font-size:14px;color:#e7b56a}
 @media (max-width:700px){
   #hud{top:14px;left:14px}#hud h1{font-size:26px}#count{font-size:46px}
   #ticker{font-size:18px;padding:12px 16px}
@@ -55,6 +60,8 @@ opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s 
   <p id="card-ord" class="ord"></p>
   <p id="card-region" class="region"></p>
 </aside>
+<button id="reset" type="button" aria-label="Reset lights" title="Reset">↺</button>
+<p id="reset-note" hidden></p>
 <script src="/spotlight.js"></script>
 <script src="/timeline.js"></script>
 <script>
@@ -388,6 +395,66 @@ async function poll() {
   } catch (error) { /* keep the map up; the next poll retries */ }
   finally { polling = false; }
 }
+const RESET_PIN = '1337';
+const resetBtn = document.getElementById('reset');
+const resetNote = document.getElementById('reset-note');
+let resetHide = 0;
+function revealReset() {
+  resetBtn.classList.add('show');
+  clearTimeout(resetHide);
+  resetHide = setTimeout(() => resetBtn.classList.remove('show'), 2500);
+}
+document.addEventListener('mousemove', revealReset);
+document.addEventListener('touchstart', revealReset, { passive: true });
+function emptyMap() {
+  clearTimeout(timer);
+  for (const entry of markers.values()) {
+    clearTimeout(entry.timer);
+    if (entry.marker) map.removeLayer(entry.marker);
+  }
+  markers.clear();
+  spots.clear();
+  rotation.clear();
+  countN = 0;
+  count.textContent = '0';
+  countLabel.textContent = 'lights of temple work this year';
+  since = 0;
+  ready = true;
+  bloomKey = null;
+  currentKey = null;
+  mode = 'idle';
+  hideCard();
+  ticker.textContent = '\u00a0';
+  map.flyTo(WORLD.center, WORLD.zoom, flyOpts());
+  timer = setTimeout(runStep, 2000);
+}
+resetBtn.addEventListener('click', async () => {
+  const typed = window.prompt('PIN');
+  if (typed == null) return;
+  if (String(typed).trim() !== RESET_PIN) {
+    resetNote.hidden = false;
+    resetNote.textContent = 'That PIN is not right.';
+    return;
+  }
+  if (!window.confirm('Clear all lights and start over?')) return;
+  resetNote.hidden = true;
+  try {
+    const response = await fetch('/api/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Reset-Pin': RESET_PIN },
+      body: JSON.stringify({ pin: RESET_PIN }),
+    });
+    if (!response.ok) {
+      resetNote.hidden = false;
+      resetNote.textContent = 'Could not reset.';
+      return;
+    }
+    emptyMap();
+  } catch (error) {
+    resetNote.hidden = false;
+    resetNote.textContent = 'Could not reset.';
+  }
+});
 poll();
 setInterval(poll, 2000);
 </script></body></html>

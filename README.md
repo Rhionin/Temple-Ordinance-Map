@@ -16,6 +16,7 @@ node server.js                                     # same
 node server.js ingest path/to/completed.csv        # bulk-load a CSV from the command line
 GEOCODE_UA="temple-ordinance-map/1.0 (you@example.com)" PORT=8080 node server.js
 RESET_TOKEN="a-long-random-string" npm start       # enables POST /api/reset
+RESET_PIN="1337" npm start                          # optional; the TV PIN defaults to 1337
 npm test                                           # node --test test/
 ```
 
@@ -23,9 +24,10 @@ Local uploads geocode before the response returns. Reset stored lights by deleti
 
 ```
 curl -X POST -H "Authorization: Bearer $RESET_TOKEN" http://localhost:3000/api/reset
+curl -X POST -H "Content-Type: application/json" -d '{"pin":"1337"}' http://localhost:3000/api/reset
 ```
 
-Keep `data/geocache.json` so the next run does not geocode the same places again.
+The TV page also has a faint reset control in the top-right corner. It appears when the pointer moves or the screen is tapped. The PIN on that page is `1337`. A correct PIN asks “Clear all lights and start over?” and then clears the lights. `RESET_PIN` overrides the server PIN (default `1337`). If you change it, the page still sends `1337` until that constant is updated. Keep `data/geocache.json` so the next run does not geocode the same places again.
 
 ## Deploy on Cloudflare
 
@@ -66,7 +68,7 @@ curl -X POST -H "Authorization: Bearer $RESET_TOKEN" https://temple-ordinance-ma
 - Places already in the geocode cache become lights immediately. The rest are queued. On the Worker, a Durable Object alarm calls Nominatim at least 1.1 s apart and writes each light as it resolves. Locally, Node does that pacing inside the upload request.
 - Fallbacks: full place → parish/sogn/amt/county words stripped → first + last segment → drop leading segments → drop trailing segments. Failed lookups are cached so they are not retried. The Node server also appends them to `data/unresolved.log`.
 - `GET /api/lights?since=<unix ms>` returns place, lat, lon, created time, updated time, ordinance types, and completion month (`YYYY-MM`) for lights newer than `since` (a light whose ordinance list just grew is included). The month is the earliest past-year ordinance date for that person. It is null when the date did not parse. The TV page polls this about every 2 seconds. The local server still offers `/api/stream` (SSE); the page does not depend on it.
-- `POST /api/reset` with `Authorization: Bearer $RESET_TOKEN` deletes lights and pending geocode jobs. It does not delete the place cache. If `RESET_TOKEN` is unset, the route responds 503.
+- `POST /api/reset` deletes lights and pending geocode jobs. It does not delete the place cache. Send `Authorization: Bearer $RESET_TOKEN`, or a PIN in the `X-Reset-Pin` header or JSON body `{ "pin": "1337" }`. The PIN defaults to `1337` and can be overridden with `RESET_PIN`. With no PIN and no `RESET_TOKEN`, the route responds 503. A wrong PIN with no token responds 401. A correct bearer token still works.
 - The upload page detects iPhone vs Android (override with `?os=ios|android`) and explains how to open the list in the mobile browser.
   FamilySearch's apple-app-site-association claims `/temple/completed` and `/*/temple/completed` for the Family Tree app, so the button uses the trailing-slash URL `/en/temple/completed/` plus a copy-and-paste fallback (typed URLs open in the browser).
 - The file input accepts `.csv`, `.txt`, and `text/csv`. The page checks for a qualifying-event column instead of trusting the filename.

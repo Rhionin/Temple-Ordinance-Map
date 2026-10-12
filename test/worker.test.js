@@ -210,6 +210,42 @@ test('api upload queues work, hides private fields, and reset requires the token
   assert.equal(await tokensMatch('s3cret', 'other'), false);
 });
 
+test('reset accepts PIN 1337, rejects a wrong PIN, and keeps the geocode cache', async () => {
+  const store = memoryStore({
+    lights: [{ id: 'ABCD-1', place: 'Cork, Ireland', ordinance: 'Baptism', lat: 51.9, lon: -8.47, created: 1 }],
+    jobs: [{ id: 'ABCD-2', place: 'Ogden', ordinance: 'Endowment', status: 'pending' }],
+    cache: { 'Cork, Ireland': { lat: 51.9, lon: -8.47 } },
+  });
+  const wrong = await handleApi(req('/api/reset', { method: 'POST', headers: { 'x-reset-pin': '0000' } }), { store, resetToken: '' });
+  assert.equal(wrong.status, 401);
+  assert.equal(store.lights.length, 1);
+  assert.equal(store.jobs.length, 1);
+  const byBody = memoryStore({
+    lights: [{ id: 'ABCD-1', place: 'Cork, Ireland', ordinance: 'Baptism', lat: 51.9, lon: -8.47, created: 1 }],
+    cache: { 'Cork, Ireland': { lat: 51.9, lon: -8.47 } },
+  });
+  const bodyCleared = await handleApi(req('/api/reset', { method: 'POST', body: JSON.stringify({ pin: '1337' }) }), { store: byBody, resetToken: '' });
+  assert.equal(bodyCleared.status, 200);
+  assert.deepEqual(byBody.lights, []);
+  assert.deepEqual(byBody.cache['Cork, Ireland'], { lat: 51.9, lon: -8.47 });
+  const cleared = await handleApi(req('/api/reset', { method: 'POST', headers: { 'x-reset-pin': '1337' } }), { store, resetToken: '' });
+  assert.equal(cleared.status, 200);
+  assert.deepEqual(store.lights, []);
+  assert.deepEqual(store.jobs, []);
+  assert.deepEqual(store.cache['Cork, Ireland'], { lat: 51.9, lon: -8.47 });
+  const custom = memoryStore({ lights: [{ id: 'ABCD-9', place: 'X', lat: 1, lon: 2, created: 3, ordinance: 'Baptism' }] });
+  assert.equal((await handleApi(req('/api/reset', { method: 'POST', headers: { 'x-reset-pin': '1337' } }), { store: custom, resetToken: '', resetPin: '9999' })).status, 401);
+  assert.equal(custom.lights.length, 1);
+  assert.equal((await handleApi(req('/api/reset', { method: 'POST', headers: { 'x-reset-pin': '0000', authorization: 'Bearer s3cret' } }), { store: custom, resetToken: 's3cret', resetPin: '9999' })).status, 200);
+  assert.deepEqual(custom.lights, []);
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
+  assert.match(html, /1337/);
+  assert.match(html, /Clear all lights and start over\?/);
+  assert.match(html, /mousemove/);
+  assert.match(html, /touchstart/);
+  assert.match(html, /That PIN is not right/);
+});
+
 test('oversized uploads are rejected before they are parsed', async () => {
   const store = memoryStore();
   const response = await handleApi(req('/api/upload', { method: 'POST', headers: { 'content-length': '5000001' }, body: 'nope' }), { store });

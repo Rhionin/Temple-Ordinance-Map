@@ -165,8 +165,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.pathname === '/api/lights' || url.pathname === '/api/reset') {
-    const request = new Request(url, { method: req.method, headers: req.headers });
-    return send(res, await handleApi(request, { store: fileStore, resetToken: process.env.RESET_TOKEN || '' }));
+    const init = { method: req.method, headers: req.headers };
+    if (req.method === 'POST' && url.pathname === '/api/reset') init.body = await readBody(req);
+    const request = new Request(url, init);
+    return send(res, await handleApi(request, {
+      store: fileStore,
+      resetToken: process.env.RESET_TOKEN || '',
+      resetPin: process.env.RESET_PIN || '1337',
+    }));
   }
   if (url.pathname === '/api/stream') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
