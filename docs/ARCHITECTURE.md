@@ -6,11 +6,11 @@ This note describes `main` after the timeline, spotlight fly-to, English ordinan
 
 ## Stored light
 
-One FamilySearch person is one light. The D1 row holds the person id, the place, latitude, longitude, ordinance types, `created`, `updated`, `month`, and `country`. The person id is the dedupe key. Names and temple names are not written. `GET /api/lights` returns `place`, `lat`, `lon`, `created`, `updated`, `ordinances`, and `month`. It does not return the person id or the country code.
+One FamilySearch person is one light. The D1 row holds the person id, the place, latitude, longitude, ordinance types, `created`, `updated`, `month`, `completed`, and `country`. The person id is the dedupe key. Names and temple names are not written. `GET /api/lights` returns `place`, `lat`, `lon`, `created`, `updated`, `ordinances`, and `month`. It does not return the person id, the completion day, or the country code.
 
 Ordinance types share one text column. The value is a JSON array of English FamilySearch labels. An older plain string still reads as a one-item list. `lib/ordinance-names.js` maps known translations onto those six English names at parse time. An unknown label is kept and logged once.
 
-Rows from the past year are kept. A row whose date does not parse is kept too, with a null month. Older dated rows are dropped. `month` is `YYYY-MM` and is the earliest past-year ordinance date for that person.
+Rows from the past year are kept. A row whose date does not parse is kept too, with a null month. Older dated rows are dropped. `month` is `YYYY-MM` and is the earliest past-year ordinance date for that person. `completed` is that same date as `YYYY-MM-DD`. A public light with a null month and a stored day uses the day. Rows saved before either column existed stay undated until the same CSV is uploaded again.
 
 `country` is an ISO code. Nominatim supplies it when a place is fetched. `lib/country.js` fills a missing code from the Natural Earth outlines. `GET /api/stats` counts ancestors, countries, ordinance types, and people who shared a list. A sharer is a hash of the browser id in `X-Sharer`, or a hash of the person ids in the file. The hash is not a name. Reset deletes lights, jobs, and sharer hashes. The place cache stays.
 

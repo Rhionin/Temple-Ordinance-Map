@@ -60,7 +60,9 @@ test('the earliest past-year month is kept and an unparsed date stays null', () 
   ].join('\n');
   const plan = planUpload(text, { now: NOW, existingIds: new Set(), cache: {} });
   assert.equal(plan.pending.find(job => job.id === 'ABCD-123').month, '2026-03');
+  assert.equal(plan.pending.find(job => job.id === 'ABCD-123').completed, '2026-03-02');
   assert.equal(plan.pending.find(job => job.id === 'ABCD-124').month, null);
+  assert.equal(plan.pending.find(job => job.id === 'ABCD-124').completed, null);
 });
 
 test('a repeated file can fill a missing month without adding an ordinance', () => {
@@ -74,7 +76,7 @@ test('a repeated file can fill a missing month without adding an ordinance', () 
   assert.equal(plan.stats.duplicate, 1);
   assert.equal(plan.stats.merged, 0);
   assert.deepEqual(plan.merges, []);
-  assert.deepEqual(plan.monthFixes, [{ id: 'ABCD-123', month: '2026-09' }]);
+  assert.deepEqual(plan.monthFixes, [{ id: 'ABCD-123', month: '2026-09', completed: '2026-09-15' }]);
 });
 
 test('a newly merged ordinance can move the completion month earlier', () => {
@@ -87,4 +89,5 @@ test('a newly merged ordinance can move the completion month earlier', () => {
   });
   assert.equal(plan.stats.merged, 1);
   assert.equal(plan.merges[0].month, '2026-03');
+  assert.equal(plan.merges[0].completed, '2026-03-02');
 });
