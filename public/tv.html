@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="/vendor/leaflet.css"><script src="/vendor/leaflet.js"></script>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#07040c;font-family:Georgia,serif}
-#stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform:translate(-50%,-50%) scale(var(--fit,1));transform-origin:center center;background:#07040c}
+#stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform:translate(-50%,-50%) rotate(var(--turn,0deg)) scale(var(--fit,1));transform-origin:center center;background:#07040c}
 #map{position:absolute;inset:0;width:1920px;height:1080px;background:#07040c;visibility:hidden}
 .leaflet-container{background:#07040c}
 .leaflet-div-icon,.candle-icon{background:transparent;border:none}
@@ -89,16 +89,66 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 <script src="/spotlight.js"></script>
 <script src="/timeline.js"></script>
 <script src="/timeline-camera.js"></script>
+<script src="/stage-fit.js"></script>
 <script>
 function fitStage() {
-  const fit = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-  document.documentElement.style.setProperty('--fit', String(fit > 0 ? fit : 1));
+  const portrait = window.matchMedia('(orientation: portrait)').matches;
+  const box = StageFit.fit(window.innerWidth, window.innerHeight, portrait);
+  const root = document.documentElement;
+  root.style.setProperty('--fit', String(box.fit));
+  root.style.setProperty('--turn', box.turn);
 }
 fitStage();
 window.addEventListener('resize', fitStage);
+window.addEventListener('orientationchange', fitStage);
+window.matchMedia('(orientation: portrait)').addEventListener('change', fitStage);
+function stageTurned() {
+  return document.documentElement.style.getPropertyValue('--turn').trim() === '90deg';
+}
+function pointerOf(event) {
+  return event.touches && event.touches.length ? event.touches[0] : event;
+}
+function eventAt(event, point) {
+  return new Proxy(event, {
+    get(target, prop) {
+      if (prop === 'clientX') return point.x;
+      if (prop === 'clientY') return point.y;
+      if (prop === 'touches' && target.touches && target.touches.length) return [{ clientX: point.x, clientY: point.y }];
+      const value = target[prop];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
 const WORLD = { center: [25, 0], zoom: 2.4 };
 const SPOT_ZOOM = 4.8;
 const DWELL_MS = 9000;
+function localPointer(event, element) {
+  const src = pointerOf(event);
+  return StageFit.containerPoint(src.clientX, src.clientY, element.getBoundingClientRect(), element.offsetWidth, element.offsetHeight, '90deg');
+}
+(function () {
+  const down = L.Draggable.prototype._onDown;
+  const move = L.Draggable.prototype._onMove;
+  L.Draggable.prototype._onDown = function (event) {
+    this._stageTurn = stageTurned();
+    if (!this._stageTurn) return down.call(this, event);
+    const local = localPointer(event, this._dragStartTarget);
+    down.call(this, eventAt(event, local));
+    this._startPoint = L.point(local.x, local.y);
+    this._parentScale = { x: 1, y: 1 };
+  };
+  L.Draggable.prototype._onMove = function (event) {
+    if (!this._stageTurn) return move.call(this, event);
+    move.call(this, eventAt(event, localPointer(event, this._dragStartTarget)));
+  };
+  const nativeMouse = L.DomEvent.getMousePosition;
+  L.DomEvent.getMousePosition = function (event, container) {
+    if (!container || !stageTurned()) return nativeMouse(event, container);
+    const src = pointerOf(event);
+    const point = StageFit.containerPoint(src.clientX, src.clientY, container.getBoundingClientRect(), container.offsetWidth, container.offsetHeight, '90deg');
+    return L.point(point.x, point.y);
+  };
+})();
 const map = L.map('map', { zoomControl: false, worldCopyJump: true, zoomSnap: 0, renderer: L.svg({ padding: 0.8 }) }).setView(WORLD.center, WORLD.zoom);
 map.getContainer().style.visibility = 'hidden';
 // Leaflet's SVG renderer only redraws paths on moveend. During flyTo it CSS-scales

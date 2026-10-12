@@ -51,8 +51,11 @@ test('the TV is a 16:9 stage, the headline counts ancestors, and timeline reveal
   assert.match(tv, /id="stage"/);
   assert.match(tv, /width:1920px/);
   assert.match(tv, /height:1080px/);
-  assert.match(tv, /innerWidth\s*\/\s*1920/);
-  assert.match(tv, /innerHeight\s*\/\s*1080/);
+  assert.match(tv, /stage-fit\.js/);
+  assert.match(tv, /StageFit\.fit\(window\.innerWidth,\s*window\.innerHeight/);
+  const stageFit = fs.readFileSync(path.join(__dirname, '..', 'public', 'stage-fit.js'), 'utf8');
+  assert.match(stageFit, /\/\s*1920/);
+  assert.match(stageFit, /\/\s*1080/);
   assert.match(tv, /ancestor this year/);
   assert.match(tv, /ancestors this year/);
   assert.doesNotMatch(tv, /lights of temple work this year/);
