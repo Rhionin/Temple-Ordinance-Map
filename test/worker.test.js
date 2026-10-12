@@ -142,9 +142,10 @@ test('forty uncached places stay at or under one Nominatim request per second', 
 test('nominatim policy errors back off longer than a transient failure', () => {
   assert.equal(retryDelay(403), 60_000);
   assert.equal(retryDelay(401), 60_000);
-  assert.equal(retryDelay(429), 5000);
+  assert.equal(retryDelay(429), 60_000);
+  assert.equal(retryDelay(503), 60_000);
   assert.equal(retryDelay(500), 5000);
-  assert.ok(retryDelay(429) >= MIN_GAP_MS);
+  assert.equal(retryDelay(0), 5000);
 });
 
 test('fallback queries stay at least 1.1s apart', () => {
