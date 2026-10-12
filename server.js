@@ -91,16 +91,19 @@ function remember(light) {
   save();
   publish(light);
 }
-function touch(light, ordinance, updated, month) {
+function touch(light, ordinance, updated, month, completed) {
   light.ordinance = ordinance;
   light.updated = updated;
-  if (month && (!light.month || month < light.month)) light.month = month;
+  if (month && (!light.month || month < light.month)) {
+    light.month = month;
+    if (completed) light.completed = completed;
+  }
   save();
   publish(light);
 }
 
 async function ingest(text, sharerHeader) {
-  const existing = lights.map(light => ({ id: light.id, ordinance: light.ordinance }));
+  const existing = lights.map(light => ({ id: light.id, ordinance: light.ordinance, month: light.month || null, completed: light.completed || null }));
   const plan = planUpload(text, { existing, cache });
   if (!plan.ok) {
     const error = new Error(plan.reason);
@@ -135,24 +138,24 @@ async function ingest(text, sharerHeader) {
     const light = lights.find(item => item.id === merge.id);
     if (!light) continue;
     created = nextCreated(Date.now(), created);
-    touch(light, serializeOrdinances(merge.ordinances), created, merge.month || null);
+    touch(light, serializeOrdinances(merge.ordinances), created, merge.month || null, merge.completed || null);
   }
   for (const fix of plan.monthFixes || []) {
     const light = lights.find(item => item.id === fix.id);
     if (!light || !fix.month || (light.month && light.month <= fix.month)) continue;
     created = nextCreated(Date.now(), created);
-    touch(light, light.ordinance, created, fix.month);
+    touch(light, light.ordinance, created, fix.month, fix.completed || null);
   }
   for (const row of plan.immediate) {
     created = nextCreated(Date.now(), created);
-    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, month: row.month || null, country: countryForLight(row), created, updated: created });
+    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, month: row.month || null, completed: row.completed || null, country: countryForLight(row), created, updated: created });
   }
   for (const job of plan.pending) {
     const coord = await geocode(job.place);
     plan.stats.queued--;
     if (!coord) { plan.stats.unresolved.push(job.place); continue; }
     created = nextCreated(Date.now(), created);
-    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, month: job.month || null, country: countryForLight(coord), created, updated: created });
+    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, month: job.month || null, completed: job.completed || null, country: countryForLight(coord), created, updated: created });
     plan.stats.added++;
     plan.stats.geocoded++;
   }

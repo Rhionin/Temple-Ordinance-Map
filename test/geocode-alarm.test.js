@@ -13,6 +13,7 @@ function world(jobCount, { cached = true } = {}) {
       created: i + 1,
       cursor_idx: 0,
       month: '2026-01',
+      completed: '2026-01-15',
       status: 'pending',
     });
   }
@@ -70,7 +71,7 @@ function world(jobCount, { cached = true } = {}) {
         async run(args = []) {
           if (sql.includes('INSERT INTO lights')) {
             const id = args[0];
-            const stillPending = jobs.find(job => job.person_id === args[9] && job.status === 'pending');
+            const stillPending = jobs.find(job => job.person_id === args[10] && job.status === 'pending');
             if (stillPending && !lights.some(light => light.person_id === id)) {
               lights.push({
                 person_id: id,
@@ -82,6 +83,7 @@ function world(jobCount, { cached = true } = {}) {
                 updated: args[6],
                 month: args[7],
                 country: args[8],
+                completed: args[9],
               });
             }
           }
@@ -130,6 +132,7 @@ test('a full cache-hit batch rearms while a job is still pending', async () => {
   });
   assert.equal(fixture.lights.length, BATCH_LIMIT);
   assert.equal(fixture.lights[0].month, '2026-01');
+  assert.equal(fixture.lights[0].completed, '2026-01-15');
   assert.equal(fixture.jobs.filter(job => job.status === 'pending').length, 1);
   assert.deepEqual(fixture.alarms, [fixture.clock]);
 });

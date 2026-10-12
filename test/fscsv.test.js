@@ -16,6 +16,13 @@ test('dates across locales', () => {
     ['15 settembre 2026', '2026-09-15'], ['15 сентября 2026 г.', '2026-09-15'], ['2026年8月1日', '2026-08-01'], ['2026년 3월 15일', '2026-03-15'],
     ['2026-09-15', '2026-09-15'], ['15/09/2026', '2026-09-15'], ['15 Setyembre 2026', '2026-09-15']]) assert.strictEqual(iso(s), e, s);
   assert.strictEqual(parseDate('fecha desconocida'), null);
+  assert.strictEqual(iso('15. syyskuuta 2026'), '2026-09-15');
+  assert.strictEqual(iso('2. lokakuuta 2026'), '2026-10-02');
+  assert.strictEqual(iso('2.10.2026'), '2026-10-02');
+  assert.strictEqual(iso('15.9.2026'), '2026-09-15');
+  assert.strictEqual(iso('2.10.2026.'), '2026-10-02');
+  assert.strictEqual(iso('\u200e15.9.2026\u200e'), '2026-09-15');
+  assert.strictEqual(iso('="15 September 2026"'), '2026-09-15');
 });
 
 test('place extraction', () => {

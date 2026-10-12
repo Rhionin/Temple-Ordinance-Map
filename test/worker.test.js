@@ -20,8 +20,8 @@ function memoryStore(seed = {}) {
     },
     async known() {
       return [
-        ...lights.map(light => ({ id: light.id, ordinance: light.ordinance, month: light.month || null })),
-        ...jobs.filter(job => job.status !== 'failed').map(job => ({ id: job.id, ordinance: job.ordinance, month: job.month || null })),
+        ...lights.map(light => ({ id: light.id, ordinance: light.ordinance, month: light.month || null, completed: light.completed || null })),
+        ...jobs.filter(job => job.status !== 'failed').map(job => ({ id: job.id, ordinance: job.ordinance, month: job.month || null, completed: job.completed || null })),
       ];
     },
     async maxCreated() {
@@ -41,12 +41,14 @@ function memoryStore(seed = {}) {
         light.ordinance = serializeOrdinances(merge.ordinance);
         light.updated = merge.updated;
         if (merge.month && (!light.month || merge.month < light.month)) light.month = merge.month;
+        if (merge.completed && (!light.completed || merge.completed < light.completed)) light.completed = merge.completed;
         return true;
       }
       const job = jobs.find(existing => existing.id === merge.id && existing.status !== 'failed');
       if (job) {
         job.ordinance = serializeOrdinances(merge.ordinance);
         if (merge.month && (!job.month || merge.month < job.month)) job.month = merge.month;
+        if (merge.completed && (!job.completed || merge.completed < job.completed)) job.completed = merge.completed;
         return true;
       }
       return false;
@@ -57,11 +59,15 @@ function memoryStore(seed = {}) {
         if (update.month && (!light.month || update.month < light.month)) {
           light.month = update.month;
           light.updated = update.updated;
+          if (update.completed) light.completed = update.completed;
         }
         return true;
       }
       const job = jobs.find(existing => existing.id === update.id && existing.status !== 'failed');
-      if (job && update.month && (!job.month || update.month < job.month)) job.month = update.month;
+      if (job && update.month && (!job.month || update.month < job.month)) {
+        job.month = update.month;
+        if (update.completed) job.completed = update.completed;
+      }
       return !!job;
     },
     async insertLight(light) {
@@ -97,7 +103,7 @@ test('upload plan keeps recent rows, drops names, and queues geocoding', () => {
   assert.equal(plan.pending.length, 2);
   assert.equal(plan.immediate.length, 0);
   for (const job of plan.pending) {
-    assert.deepEqual(storedKeys(job), ['cursor', 'id', 'month', 'ordinance', 'place']);
+    assert.deepEqual(storedKeys(job), ['completed', 'cursor', 'id', 'month', 'ordinance', 'place']);
     assert.match(job.id, /^[A-Z0-9]{4}-[A-Z0-9]{2,4}$/);
     assert.equal(job.name, undefined);
     assert.equal(job.temple, undefined);
@@ -119,7 +125,7 @@ test('cached places become lights immediately and duplicates are skipped', () =>
   assert.equal(plan.immediate.length, 1);
   assert.equal(plan.immediate[0].id, 'ABCD-124');
   assert.equal(plan.immediate[0].name, undefined);
-  assert.deepEqual(storedKeys(plan.immediate[0]), ['id', 'lat', 'lon', 'month', 'ordinance', 'place']);
+  assert.deepEqual(storedKeys(plan.immediate[0]), ['completed', 'id', 'lat', 'lon', 'month', 'ordinance', 'place']);
 });
 
 test('known misses fall through to the next place candidate', () => {
@@ -264,13 +270,13 @@ test('d1 migration stores deduped lights and the public query omits ids', () => 
     db.exec(fs.readFileSync(path.join(dir, name), 'utf8'));
   }
   const columns = db.prepare('PRAGMA table_info(lights)').all().map(column => column.name);
-  assert.deepEqual(columns, ['person_id', 'place', 'lat', 'lon', 'ordinance', 'created', 'updated', 'month', 'country']);
+  assert.deepEqual(columns, ['person_id', 'place', 'lat', 'lon', 'ordinance', 'created', 'updated', 'month', 'country', 'completed']);
   assert.ok(!columns.includes('name'));
   const insert = db.prepare('INSERT INTO lights (person_id, place, lat, lon, ordinance, created) VALUES (?, ?, ?, ?, ?, ?)');
   insert.run('ABCD-123', 'Cork, Ireland', 51.9, -8.47, 'Endowment', 10);
   assert.throws(() => insert.run('ABCD-123', 'Other', 1, 2, 'Baptism', 11));
   const jobColumns = db.prepare('PRAGMA table_info(jobs)').all().map(column => column.name);
-  assert.deepEqual(jobColumns, ['person_id', 'place', 'ordinance', 'created', 'cursor_idx', 'status', 'month']);
+  assert.deepEqual(jobColumns, ['person_id', 'place', 'ordinance', 'created', 'cursor_idx', 'status', 'month', 'completed']);
   const cacheColumns = db.prepare('PRAGMA table_info(geocache)').all().map(column => column.name);
   assert.deepEqual(cacheColumns, ['query', 'lat', 'lon', 'cached_at', 'country']);
   const sharerColumns = db.prepare('PRAGMA table_info(sharers)').all().map(column => column.name);
