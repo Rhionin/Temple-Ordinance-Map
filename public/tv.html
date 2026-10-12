@@ -4,7 +4,7 @@
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#07040c;font-family:Georgia,serif}
 #stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform:translate(-50%,-50%) scale(var(--fit,1));transform-origin:center center;background:#07040c}
-#map{position:absolute;inset:0;width:1920px;height:1080px;background:#07040c}
+#map{position:absolute;inset:0;width:1920px;height:1080px;background:#07040c;visibility:hidden}
 .leaflet-container{background:#07040c}
 .leaflet-div-icon,.candle-icon{background:transparent;border:none}
 #hud{position:fixed;top:24px;left:32px;z-index:999;max-width:980px;color:#ffd08a;text-shadow:0 0 14px #ff7a00}
@@ -99,7 +99,8 @@ window.addEventListener('resize', fitStage);
 const WORLD = { center: [25, 0], zoom: 2.4 };
 const SPOT_ZOOM = 4.8;
 const DWELL_MS = 9000;
-const map = L.map('map', { zoomControl: false, worldCopyJump: true, renderer: L.svg({ padding: 0.8 }) }).setView(WORLD.center, WORLD.zoom);
+const map = L.map('map', { zoomControl: false, worldCopyJump: true, zoomSnap: 0, renderer: L.svg({ padding: 0.8 }) }).setView(WORLD.center, WORLD.zoom);
+map.getContainer().style.visibility = 'hidden';
 // Leaflet's SVG renderer only redraws paths on moveend. During flyTo it CSS-scales
 // the previous viewport, so the destination is blank until the flight ends.
 function paintCountriesDuringMove() {
@@ -263,12 +264,15 @@ function rememberPinned(lights) {
   pinnedBox = result.box;
   return result.grew;
 }
-function viewZoom(box, cap) {
-  const view = TimelineCamera.spanBox(box, 1);
+function fittedCamera(cap) {
+  const view = TimelineCamera.spanBox(pinnedBox, 0.5);
   const bounds = L.latLngBounds([view.south, view.west], [view.north, view.east]);
-  let fit = map.getBoundsZoom(bounds, false, L.point(120, 160));
-  if (!Number.isFinite(fit)) fit = cap;
-  return TimelineCamera.zoomOutOnly(cap, fit);
+  const fitted = map._getBoundsCenterZoom(bounds, {
+    paddingTopLeft: L.point(140, 160),
+    paddingBottomRight: L.point(140, 220),
+    maxZoom: cap,
+  });
+  return { center: fitted.center, zoom: TimelineCamera.zoomOutOnly(cap, fitted.zoom) };
 }
 function easeCamera(center, zoom) {
   const token = ++cameraToken;
@@ -280,15 +284,26 @@ function easeCamera(center, zoom) {
     map.setView(dest, endZoom == null ? startZoom : endZoom, { animate: false });
     return;
   }
+  const startPx = map.project(start, endZoom);
+  const destPx = map.project(dest, endZoom);
   const t0 = performance.now();
-  const duration = 1600;
+  const duration = 1700;
   function frame(now) {
     if (token !== cameraToken) return;
     const t = Math.min(1, (now - t0) / duration);
     const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    const lat = start.lat + (dest.lat - start.lat) * e;
-    const lng = start.lng + (dest.lng - start.lng) * e;
-    const z = startZoom + (endZoom - startZoom) * e;
+    const zooming = startZoom - endZoom > 0.02;
+    const zoomPart = zooming ? Math.min(1, e / 0.65) : 1;
+    const panPart = zooming ? Math.max(0, (e - 0.65) / 0.35) : e;
+    const z = startZoom + (endZoom - startZoom) * zoomPart;
+    let lat = start.lat;
+    let lng = start.lng;
+    if (panPart > 0) {
+      const px = startPx.add(destPx.subtract(startPx).multiplyBy(panPart));
+      const ll = map.unproject(px, endZoom);
+      lat = ll.lat;
+      lng = ll.lng;
+    }
     map.setView([lat, lng], z, { animate: false });
     if (t < 1) requestAnimationFrame(frame);
   }
@@ -297,17 +312,18 @@ function easeCamera(center, zoom) {
 function moveTimelineCamera(allowZoomIn) {
   if (!pinnedBox || timelineWide) return;
   const cap = allowZoomIn ? 4.2 : map.getZoom();
-  const zoom = viewZoom(pinnedBox, cap);
-  if (!allowZoomIn && zoom > map.getZoom() + 0.01) return;
-  const view = TimelineCamera.spanBox(pinnedBox, 1);
-  const bounds = L.latLngBounds([view.south, view.west], [view.north, view.east]);
-  const center = bounds.getCenter();
+  const fitted = fittedCamera(cap);
+  if (!fitted.center || fitted.zoom == null) return;
+  if (!allowZoomIn && fitted.zoom > map.getZoom() + 0.01) return;
   if (allowZoomIn || reduceMotion) {
     cameraToken += 1;
-    map.setView(center, zoom, { animate: false });
+    map.setView(fitted.center, fitted.zoom, { animate: false });
     return;
   }
-  easeCamera(center, zoom);
+  const here = map.project(map.getCenter(), fitted.zoom);
+  const there = map.project(fitted.center, fitted.zoom);
+  if (Math.abs(fitted.zoom - map.getZoom()) < 0.02 && here.distanceTo(there) < 12) return;
+  easeCamera(fitted.center, fitted.zoom);
 }
 function frameFirstLights() {
   const frames = (timelineScript && timelineScript.frames) || [];
@@ -383,6 +399,7 @@ function startTimeline() {
   scriptStart = Date.now();
   eventCursor = 0;
   frameFirstLights();
+  map.getContainer().style.visibility = 'visible';
   tickTimeline();
 }
 function finishTimeline() {
@@ -394,6 +411,7 @@ function finishTimeline() {
 }
 function startSpotlight() {
   act = 'spotlight';
+  map.getContainer().style.visibility = 'visible';
   clearTimeout(timer);
   showTimelineChrome(false);
   hideCard();
