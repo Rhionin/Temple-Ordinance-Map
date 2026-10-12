@@ -13,7 +13,7 @@ test('the TV page loads Leaflet from this host', async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   try {
-    const page = await fetch('http://127.0.0.1:' + port + '/tv');
+    const page = await fetch('http://127.0.0.1:' + port + '/');
     assert.equal(page.status, 200);
     assert.match(await page.text(), /src="\/vendor\/leaflet.js"/);
     const script = await fetch('http://127.0.0.1:' + port + '/vendor/leaflet.js');

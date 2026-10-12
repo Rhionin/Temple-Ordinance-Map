@@ -16,7 +16,7 @@ Rows from the past year are kept. A row whose date does not parse is kept too, w
 
 ## Two runtimes, one API
 
-`lib/http.js` implements `POST /api/upload`, `GET /api/lights`, `GET /api/stats`, `GET /api/version`, and `POST /api/reset`. `src/worker.js` serves that API on Cloudflare. `server.js` serves it under Node for local use. Static files live in `public/`. The Worker assets binding serves them. `run_worker_first` is `/api/*`, `/`, `/tv`, and `/tv/`. HTML pages and `/version.js` are sent with `Cache-Control: no-cache` so a new deploy can reload open screens.
+`lib/http.js` implements `POST /api/upload`, `GET /api/lights`, `GET /api/stats`, `GET /api/version`, and `POST /api/reset`. `src/worker.js` serves that API on Cloudflare. `server.js` serves it under Node for local use. Static files live in `public/`. The Worker assets binding serves them. `run_worker_first` is `/api/*`, `/`, `/new`, and `/g/*`. HTML pages and `/version.js` are sent with `Cache-Control: no-cache` so a new deploy can reload open screens.
 
 An upload is parsed by `lib/fscsv.js`. Columns are chosen by position and by the shape of the cells, not by header words. `lib/rows.js` drops names and temples and applies the date cutoff. `lib/upload.js` groups rows by person id, merges ordinance types onto that person, and splits cache hits from places that still need a lookup.
 

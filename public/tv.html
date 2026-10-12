@@ -642,9 +642,9 @@ function mapApi(path) {
 }
 async function loadGroupHeading() {
   const match = location.pathname.match(/^\/g\/([^/]+)\/map\/?$/);
-  if (!match) return;
   const reset = document.getElementById('reset');
-  if (reset) reset.hidden = true;
+  if (reset && (location.pathname === '/' || match)) reset.hidden = true;
+  if (!match) return;
   try {
     const response = await fetch(mapApi('/group'), { cache: 'no-store' });
     if (!response.ok) return;

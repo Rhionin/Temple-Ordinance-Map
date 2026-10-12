@@ -16,7 +16,8 @@ const { analyze, parseDate } = require('./lib/fscsv');
 const { countryForLight, fillCountries } = require('./lib/country');
 const { tally } = require('./lib/stats');
 const { countsAsShare, sharerBasis, hashSharer } = require('./lib/sharers');
-const { publicGroup, uploadsAllowed } = require('./lib/groups');
+const { publicGroup, uploadsAllowed, onMaster } = require('./lib/groups');
+const { foldLights } = require('./lib/fold');
 const { localDirectory } = require('./lib/local-groups');
 const { planLimitReason, recentLimitReason, RECENT_MS } = require('./lib/quota');
 
@@ -206,6 +207,23 @@ function fileStoreFor(groupId) {
 }
 groups.store = fileStoreFor;
 
+function visibleLights() {
+  return lights.filter(light => {
+    const group = groupRows.find(item => item.id === (light.groupId || party.id));
+    return onMaster(group);
+  });
+}
+
+const master = {
+  async listLights(since) {
+    const min = Number(since) || 0;
+    return foldLights(visibleLights()).filter(row => Math.max(Number(row.updated) || 0, Number(row.created) || 0) > min);
+  },
+  async stats() {
+    return { ...tally(foldLights(visibleLights())), sharers: sharers.size };
+  },
+};
+
 const fileStore = {
   async listLights(since) {
     return fileStoreFor(party.id).listLights(since);
@@ -320,7 +338,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/reset') init.body = await readBody(req);
     const request = new Request(url, init);
     return send(res, await handleApi(request, {
-      store: fileStore,
+      store: url.pathname === '/api/reset' ? fileStore : master,
       resetToken: process.env.RESET_TOKEN || '',
       resetPin: process.env.RESET_PIN || '1337',
     }));
@@ -354,7 +372,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', file)));
   }
-  const page = { '/': 'upload.html', '/tv': 'tv.html' }[url.pathname];
+  const page = { '/': 'tv.html' }[url.pathname];
   if (url.pathname === '/world.geojson') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=86400' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', 'world.geojson')));
@@ -388,7 +406,7 @@ const server = http.createServer(async (req, res) => {
 
 if (require.main === module) {
   if (process.argv[2] === 'ingest') ingest(fs.readFileSync(process.argv[3], 'utf8')).then(stats => console.log(JSON.stringify(stats, null, 2)));
-  else server.listen(PORT, () => console.log('http://localhost:' + PORT + '  (TV: /tv)'));
+  else server.listen(PORT, () => console.log('http://localhost:' + PORT + '  (map: /)'));
 }
 
 module.exports = { server, ingest, publicFile };

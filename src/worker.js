@@ -1,11 +1,12 @@
 import { handleApi } from '../lib/http.js';
 import { withSecurityHeaders } from '../lib/headers.js';
 import { publicGroup } from '../lib/groups.js';
-import { d1Store, ensureParty } from './d1.js';
+import { ensureParty } from './d1.js';
 import { directory } from './directory.js';
+import { masterStore } from './master.js';
 import { Geocoder } from './geocoder.js';
 
-const PAGES = { '/': '/upload.html', '/tv': '/tv.html', '/tv/': '/tv.html' };
+const PAGES = { '/': '/tv.html' };
 
 function fresh(response) {
   const headers = new Headers(response.headers);
@@ -32,9 +33,9 @@ export default {
     const url = new URL(request.url);
     const groups = directory(env.DB);
     if (url.pathname.startsWith('/api/') || /^\/g\/[^/]+\/api\//.test(url.pathname)) {
-      const groupId = await ensureParty(env.DB);
+      await ensureParty(env.DB);
       return withSecurityHeaders(await handleApi(request, {
-        store: d1Store(env.DB, groupId),
+        store: masterStore(env.DB),
         groups,
         resetToken: env.RESET_TOKEN || '',
         resetPin: env.RESET_PIN || '1337',

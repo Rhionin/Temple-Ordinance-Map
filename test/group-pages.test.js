@@ -107,7 +107,8 @@ test('the share page, the group map, and /new are served, and an unknown slug is
     const map = await fetch(base + '/g/party/map');
     const missing = await fetch(base + '/g/missing');
     assert.equal(home.status, 200);
-    assert.equal(tv.status, 200);
+    assert.match(await home.text(), /leaflet.js/);
+    assert.equal(tv.status, 404);
     assert.equal(created.status, 200);
     assert.match(await created.text(), /Start a group/);
     assert.equal(party.status, 200);
