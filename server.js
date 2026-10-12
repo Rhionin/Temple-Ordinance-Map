@@ -16,6 +16,7 @@ const { analyze, parseDate } = require('./lib/fscsv');
 const { countryForLight, fillCountries } = require('./lib/country');
 const { tally } = require('./lib/stats');
 const { countsAsShare, sharerBasis, hashSharer } = require('./lib/sharers');
+const { planLimitReason, recentLimitReason, RECENT_MS } = require('./lib/quota');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_ROOT = path.join(__dirname, 'public');
@@ -104,6 +105,20 @@ async function ingest(text, sharerHeader) {
   if (!plan.ok) {
     const error = new Error(plan.reason);
     error.status = 400;
+    throw error;
+  }
+  const limited = planLimitReason(plan);
+  if (limited) {
+    const error = new Error(limited);
+    error.status = 413;
+    throw error;
+  }
+  const incoming = plan.immediate.length + plan.pending.length;
+  const recent = lights.filter(light => (light.created || 0) > Date.now() - RECENT_MS).length;
+  const busy = recentLimitReason(recent, incoming);
+  if (busy) {
+    const error = new Error(busy);
+    error.status = 429;
     throw error;
   }
   const parsed = analyze(text);

@@ -66,6 +66,9 @@
     if (kind === 'network') {
       return 'We couldn’t reach the map. Check your connection and try the upload again.';
     }
+    if (kind === 'large') {
+      return 'That file is too large. Use the Completed list from step 2.';
+    }
     return 'We couldn’t add these lights. ' + (detail ? String(detail) : 'Try again.');
   }
 

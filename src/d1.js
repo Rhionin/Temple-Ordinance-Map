@@ -5,6 +5,7 @@
 import { serializeOrdinances } from '../lib/ordinances.js';
 import { countryForLight, fillCountries } from '../lib/country.js';
 import { tally } from '../lib/stats.js';
+import { RECENT_MS } from '../lib/quota.js';
 
 export function d1Store(db) {
   return {
@@ -102,6 +103,19 @@ export function d1Store(db) {
          WHERE jobs.status = 'failed'`
       ).bind(job.id, job.place, job.ordinance || '', job.created, job.cursor || 0, job.month || null).run();
       return result.meta.changes > 0;
+    },
+    async pendingCount() {
+      const row = await db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE status = 'pending'").first();
+      return Number(row && row.n) || 0;
+    },
+    async recentCount(now = Date.now()) {
+      const since = now - RECENT_MS;
+      const row = await db.prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM lights WHERE created > ?) +
+           (SELECT COUNT(*) FROM jobs WHERE status = 'pending' AND created > ?) AS n`
+      ).bind(since, since).first();
+      return Number(row && row.n) || 0;
     },
     async clearLights() {
       await db.batch([
