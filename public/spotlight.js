@@ -133,6 +133,13 @@
       all() {
         return [...records.values()];
       },
+      clear() {
+        records.clear();
+        fresh.length = 0;
+        deck = [];
+        shown = 0;
+        singleToggle = false;
+      },
       next() {
         const keys = [...records.keys()];
         if (!keys.length) return { type: 'idle' };

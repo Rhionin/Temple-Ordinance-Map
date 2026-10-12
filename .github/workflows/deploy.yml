@@ -24,4 +24,4 @@ jobs:
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply temple-ordinance-map --remote
       - name: Deploy Worker
-        run: npx wrangler deploy
+        run: npx wrangler deploy --var BUILD_ID:${{ github.sha }}
