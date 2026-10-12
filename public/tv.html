@@ -635,9 +635,27 @@ function paintTotals() {
     ordinances: partial.ordinances,
   });
 }
+function mapApi(path) {
+  const match = location.pathname.match(/^\/g\/([^/]+)\/map\/?$/);
+  const slug = match ? decodeURIComponent(match[1]) : '';
+  return slug ? '/g/' + encodeURIComponent(slug) + '/api' + path : '/api' + path;
+}
+async function loadGroupHeading() {
+  const match = location.pathname.match(/^\/g\/([^/]+)\/map\/?$/);
+  if (!match) return;
+  const reset = document.getElementById('reset');
+  if (reset) reset.hidden = true;
+  try {
+    const response = await fetch(mapApi('/group'), { cache: 'no-store' });
+    if (!response.ok) return;
+    const group = await response.json();
+    const heading = document.querySelector('#hud h1');
+    if (heading && group.title) heading.textContent = group.title;
+  } catch (error) { /* the default heading stays */ }
+}
 async function refreshStats() {
   try {
-    const response = await fetch('/api/stats', { cache: 'no-store' });
+    const response = await fetch(mapApi('/stats'), { cache: 'no-store' });
     if (!response.ok) return;
     serverStats = await response.json();
     paintTotals();
@@ -649,7 +667,7 @@ async function poll() {
   const epoch = mapEpoch;
   const statsTask = refreshStats();
   try {
-    const response = await fetch('/api/lights?since=' + since, { cache: 'no-store' });
+    const response = await fetch(mapApi('/lights?since=' + since), { cache: 'no-store' });
     const rows = await response.json();
     if (epoch !== mapEpoch) return;
     if (!Array.isArray(rows)) return;
@@ -733,6 +751,7 @@ resetBtn.addEventListener('click', async () => {
     resetNote.textContent = 'Could not reset.';
   }
 });
+loadGroupHeading();
 poll();
 setInterval(poll, 2000);
 </script></body></html>

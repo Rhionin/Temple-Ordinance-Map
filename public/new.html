@@ -1,0 +1,77 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Start a group</title><style>
+body{margin:0;font-family:system-ui,sans-serif;background:#120a1c;color:#f6e7d0;display:flex;justify-content:center}
+main{max-width:460px;padding:24px 18px 48px}h1{color:#ffa31a;font-size:1.6em;margin:.2em 0;text-shadow:0 0 12px #ff7a00}
+label{display:block;margin:14px 0 6px;color:#ffd08a}input{width:100%;box-sizing:border-box;background:#0d0716;color:#ffd08a;border:1px solid #5a2d6e;border-radius:10px;padding:12px;font-size:1em}
+button{display:block;width:100%;margin-top:18px;background:linear-gradient(#ffb33a,#f07d00);color:#2a0f00;font-weight:700;padding:15px;border-radius:12px;font-size:1.05em;border:0;cursor:pointer}
+#msg{margin-top:12px;min-height:1.4em}.error{color:#ffd2cc;background:#3a1420;border:1px solid #a84a55;border-radius:12px;padding:12px}
+a{color:#ffc04d}.card{margin-top:16px;padding:16px;border-radius:16px;background:#21132e;border:1px solid #5a2d6e}
+.card p{line-height:1.45}.url{display:flex;gap:6px;margin:8px 0}.url input{flex:1}
+.url button{width:auto;margin:0;background:#5a2d6e;color:#fff;padding:0 14px}
+.muted{color:#b9a3c9;font-size:.9em}
+</style></head><body><main>
+<h1>Start a group</h1>
+<p>Pick a short address. Anyone with the share link can add lights. The admin link is shown once.</p>
+<form id="form">
+  <label for="slug">Address</label>
+  <input id="slug" name="slug" required maxlength="40" autocapitalize="off" spellcheck="false" placeholder="ward-party">
+  <label for="title">Title</label>
+  <input id="title" name="title" maxlength="80" placeholder="Light a candle">
+  <label for="subtitle">Subtitle</label>
+  <input id="subtitle" name="subtitle" maxlength="160" placeholder="Temple work from this year">
+  <button type="submit">Create group</button>
+</form>
+<p id="msg" role="status" aria-live="polite"></p>
+<div id="done" class="card" hidden>
+  <p>Share this page so people can add their lists.</p>
+  <div class="url"><input id="share" readonly><button type="button" id="copy-share">Copy</button></div>
+  <p>Save the admin link now. It will not be shown again.</p>
+  <div class="url"><input id="admin" readonly><button type="button" id="copy-admin">Copy</button></div>
+  <p class="muted"><a id="open-share" href="">Open the share page</a></p>
+</div>
+</main><script>
+const form=document.getElementById('form');
+const msg=document.getElementById('msg');
+const done=document.getElementById('done');
+function copyFrom(input, button){
+  return async()=>{
+    try{ await navigator.clipboard.writeText(input.value); }
+    catch(error){ input.select(); document.execCommand('copy'); }
+    button.textContent='Copied';
+    setTimeout(()=>{ button.textContent='Copy'; }, 2000);
+  };
+}
+form.onsubmit=async(event)=>{
+  event.preventDefault();
+  msg.className='';
+  msg.textContent='Creating…';
+  let response;
+  try{
+    response=await fetch('/api/groups',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({slug:slug.value, title:title.value, subtitle:subtitle.value}),
+    });
+  }catch(error){
+    msg.className='error';
+    msg.textContent='Check the connection and try again.';
+    return;
+  }
+  let body={};
+  try{ body=await response.json(); }catch(error){ body={}; }
+  if(!response.ok){
+    msg.className='error';
+    msg.textContent=body.error||'Could not create that group.';
+    return;
+  }
+  form.hidden=true;
+  msg.textContent='';
+  const origin=location.origin;
+  share.value=origin+body.sharePath;
+  admin.value=origin+body.adminPath;
+  document.getElementById('open-share').href=body.sharePath;
+  done.hidden=false;
+};
+document.getElementById('copy-share').onclick=copyFrom(share, document.getElementById('copy-share'));
+document.getElementById('copy-admin').onclick=copyFrom(admin, document.getElementById('copy-admin'));
+</script></body></html>

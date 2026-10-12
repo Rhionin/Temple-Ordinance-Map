@@ -99,7 +99,7 @@ function showSuccess(view){
 }
 async function baselineStamp(){
  try{
-  const response=await fetch('/api/lights?since=0',{cache:'no-store'});
+  const response=await fetch(api('/lights?since=0'),{cache:'no-store'});
   if(!response.ok)return null;
   const rows=await response.json();
   if(!Array.isArray(rows)||!rows.length)return 0;
@@ -113,7 +113,7 @@ function watchProgress(since,view){
  const tick=async()=>{
   let found=view.added, stalled=false;
   try{
-   const response=await fetch('/api/lights?since='+since,{cache:'no-store'});
+   const response=await fetch(api('/lights?since='+since),{cache:'no-store'});
    if(response.ok){
     const rows=await response.json();
     if(Array.isArray(rows)) found=Math.max(view.added, Math.min(view.arriving, rows.length));
@@ -154,7 +154,7 @@ csv.onchange=async()=>{
   msg.textContent='Lighting the candles…';
   const since=await baselineStamp();
   let response;
-  try{ response=await fetch('/api/upload',{method:'POST',headers:{'X-Sharer':sharerId()},body:text}); }
+  try{ response=await fetch(api('/upload'),{method:'POST',headers:{'X-Sharer':sharerId()},body:text}); }
   catch(error){ showError(UploadStatus.describeError('network')); return; }
   let stats={};
   try{ stats=await response.json(); }catch(error){ stats={}; }
@@ -173,6 +173,28 @@ csv.onchange=async()=>{
   csv.value='';
  }
 };
+function groupSlug(){
+  const match=location.pathname.match(/^\/g\/([^/]+)\/?$/);
+  if(!match) return '';
+  try { return decodeURIComponent(match[1]); } catch(error) { return ''; }
+}
+function api(path){
+  const slug=groupSlug();
+  return slug ? '/g/'+encodeURIComponent(slug)+'/api'+path : '/api'+path;
+}
+const shareSlug=groupSlug();
+if(shareSlug){
+  const see=document.getElementById('see-map');
+  if(see) see.href='/g/'+encodeURIComponent(shareSlug)+'/map';
+  fetch(api('/group'),{cache:'no-store'}).then(response=>response.ok?response.json():null).then(group=>{
+    if(!group) return;
+    if(group.title) document.querySelector('h1').textContent=group.title;
+    if(group.subtitle){
+      const intro=document.querySelector('main > p');
+      if(intro) intro.textContent=group.subtitle;
+    }
+  }).catch(()=>{});
+}
 const versionNotice=document.getElementById('version-notice');
 versionNotice.onclick=()=>{ if(!busy) location.reload(); };
 Version.watch({
