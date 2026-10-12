@@ -52,8 +52,8 @@
     const region = regionName(light && light.place);
     const count = region ? regionCount(lights || [], light.place) : 0;
     let regionText = '';
-    if (region && count === 1) regionText = '1 light in ' + region;
-    else if (region && count > 1) regionText = count + ' lights in ' + region;
+    if (region && count === 1) regionText = '1 ancestor in ' + region;
+    else if (region && count > 1) regionText = count + ' ancestors in ' + region;
     return {
       place: String((light && light.place) || ''),
       ordinancesText: ordinances.length ? ordinances.join(' · ') : 'Temple ordinance',
