@@ -29,26 +29,22 @@ Keep `data/geocache.json` so the next run does not geocode the same places again
 
 ## Deploy on Cloudflare
 
-The Worker serves `public/` as static assets, stores lights in D1, and paces Nominatim through one Durable Object so a multi-row upload stays at or under one request per second. Lights show up on the TV as each place resolves. A subdomain of rhionin.com (the zone is on the same Cloudflare account) is the straightforward host. The app’s routes are `/`, `/tv`, and `/api`, so a path on the apex would not line up without extra rewriting.
+The Worker serves `public/` as static assets, stores lights in D1, and paces Nominatim through one Durable Object so a multi-row upload stays at or under one request per second. Lights show up on the TV as each place resolves. The hostname is `temple-ordinance-map.rhionin.com` (`custom_domain = true` in `wrangler.toml`). The app’s routes are `/`, `/tv`, and `/api`, so a path on the apex would not line up without extra rewriting.
+
+`wrangler.toml` already names the worker `temple-ordinance-map`, the D1 database `temple-ordinance-map` (`database_id` `3ac5318c-7b9f-45d5-a5d0-862076f3e4b2`), and the SQLite Durable Object class `Geocoder` (migration tag `v1`). Do not commit an account id. `GEOCODE_UA` is a `[vars]` value. `RESET_TOKEN` stays a secret and is not set by deploys.
+
+Pushes to `main` run `.github/workflows/deploy.yml` (Node 22): tests, then `node scripts/prepare-d1-migrations.js`, then `npx wrangler d1 migrations apply temple-ordinance-map --remote`, then `npx wrangler deploy`. The same workflow can be started with `workflow_dispatch`. It never calls `/api/reset` and does not write secrets.
+
+The GitHub secret `CLOUDFLARE_API_TOKEN` must be set on the repository (Workers Scripts:Edit, D1:Edit, and access to account `cdaf2135c9b5b619074a6cfbb97f49af`). The account id is the workflow env var `CLOUDFLARE_ACCOUNT_ID`, not a secret. Migrations 0001 and 0002 were originally applied outside Wrangler, so the remote database may have the tables without `d1_migrations` rows. The prepare script inserts those rows only when the matching schema is already there (`0001` if `lights` exists, `0002` as well if `lights.updated` exists). A new database is left for Wrangler to migrate. `0002` stays a plain `ALTER TABLE` so a fresh database still gains the column.
+
+To deploy by hand:
 
 1. `npm install` (installs Wrangler).
 2. `npx wrangler login` with the Cloudflare account that owns the rhionin.com zone.
-3. `npx wrangler d1 create temple-ordinance-map`
-4. Replace the placeholder `database_id` in `wrangler.toml` with the id that command prints. Do not commit an account id.
-5. `npm run db:migrate:remote` (or `npx wrangler d1 migrations apply temple-ordinance-map --remote`).
-6. Set secrets (they are not in the repo):
-
-   ```
-   npx wrangler secret put GEOCODE_UA
-   # temple-ordinance-map/1.0 (you@example.com)
-   npx wrangler secret put RESET_TOKEN
-   ```
-
-   Nominatim requires a User-Agent that identifies this app and a contact. The Worker will not call Nominatim until `GEOCODE_UA` is set.
-7. `npm run deploy` (or `npx wrangler deploy`). This publishes a `*.workers.dev` hostname.
-8. Attach a hostname on the rhionin.com zone, for example `lights.rhionin.com`:
-   - Dashboard: Workers & Pages → temple-ordinance-map → Settings → Domains & Routes, or
-   - uncomment the `[[routes]]` block in `wrangler.toml` (`pattern = "lights.rhionin.com"`, `custom_domain = true`) and deploy again.
+3. `node scripts/prepare-d1-migrations.js`
+4. `npm run db:migrate:remote` (or `npx wrangler d1 migrations apply temple-ordinance-map --remote`).
+5. If `RESET_TOKEN` is not set yet: `npx wrangler secret put RESET_TOKEN`
+6. `npm run deploy` (or `npx wrangler deploy`).
 
 For a local Worker with the D1 simulator:
 
@@ -61,7 +57,7 @@ npm run dev:worker               # http://localhost:8787
 Clear lights before an event (the geocode cache is kept):
 
 ```
-curl -X POST -H "Authorization: Bearer $RESET_TOKEN" https://lights.rhionin.com/api/reset
+curl -X POST -H "Authorization: Bearer $RESET_TOKEN" https://temple-ordinance-map.rhionin.com/api/reset
 ```
 
 ## How it works

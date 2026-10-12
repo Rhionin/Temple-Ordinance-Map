@@ -14,12 +14,12 @@ html_handling = "none"
 not_found_handling = "none"
 run_worker_first = ["/api/*", "/", "/tv", "/tv/"]
 
-# Replace database_id after: npx wrangler d1 create temple-ordinance-map
-# Leave this placeholder until then. Do not put a Cloudflare account id here.
+# Do not put a Cloudflare account id here. The deploy workflow sets
+# CLOUDFLARE_ACCOUNT_ID in the job environment.
 [[d1_databases]]
 binding = "DB"
 database_name = "temple-ordinance-map"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "3ac5318c-7b9f-45d5-a5d0-862076f3e4b2"
 migrations_dir = "migrations"
 
 # One object paces Nominatim for the whole map.
@@ -31,16 +31,16 @@ class_name = "Geocoder"
 tag = "v1"
 new_sqlite_classes = ["Geocoder"]
 
-# GEOCODE_UA and RESET_TOKEN are secrets, not vars:
-#   npx wrangler secret put GEOCODE_UA
-#   npx wrangler secret put RESET_TOKEN
+# RESET_TOKEN stays a secret (npx wrangler secret put RESET_TOKEN).
+# Deploys do not set or overwrite it. GEOCODE_UA is a plain var.
+[vars]
+GEOCODE_UA = "Temple-Ordinance-Map (rhionin@gmail.com)"
 
 # Subdomain on the rhionin.com zone (same Cloudflare account). A path on the
-# apex does not match this app's root routes (/ , /tv, /api). Uncomment after
-# the DNS zone is on the account you deploy with:
-# [[routes]]
-# pattern = "lights.rhionin.com"
-# custom_domain = true
+# apex does not match this app's root routes (/ , /tv, /api).
+[[routes]]
+pattern = "temple-ordinance-map.rhionin.com"
+custom_domain = true
 
 [observability]
 enabled = true
