@@ -2,7 +2,9 @@
 // Local dev geocodes before the upload response returns. The Worker queues the
 // same rows and resolves them in the background.
 const http = require('http'), fs = require('fs'), path = require('path');
+const { execFileSync } = require('child_process');
 const { handleApi } = require('./lib/http');
+const { resolveBuildId } = require('./lib/build-id');
 const { planUpload } = require('./lib/upload');
 const { candidates } = require('./lib/places');
 const { nominatimUrl, parseNominatimBody } = require('./lib/nominatim');
@@ -200,7 +202,7 @@ const server = http.createServer(async (req, res) => {
     req.on('close', () => sseClients.delete(res));
     return;
   }
-  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js', '/timeline.js': 'timeline.js' }[url.pathname];
+  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js', '/timeline.js': 'timeline.js', '/version.js': 'version.js' }[url.pathname];
   if (script) {
     res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', script)));
@@ -211,8 +213,21 @@ const server = http.createServer(async (req, res) => {
     return res.end(fs.readFileSync(path.join(__dirname, 'public', 'world.geojson')));
   }
   if (page) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', page)));
+  }
+  if (url.pathname === '/api/version') {
+    const request = new Request(url, { method: req.method, headers: req.headers });
+    const buildId = resolveBuildId(process.env.BUILD_ID, () => execFileSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      cwd: __dirname,
+    }));
+    return send(res, await handleApi(request, {
+      store: fileStore,
+      resetToken: process.env.RESET_TOKEN || '',
+      resetPin: process.env.RESET_PIN || '1337',
+      buildId,
+    }));
   }
   res.writeHead(404);
   res.end('not found');

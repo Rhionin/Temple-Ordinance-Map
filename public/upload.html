@@ -27,9 +27,11 @@ box-shadow:0 0 14px 5px #ff9a1aaa;transform-origin:50% 100%;animation:light 1.05
 @keyframes light{0%{transform:scale(.15);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes sway{0%,100%{transform:scale(1) rotate(-5deg)}50%{transform:scale(1.06) rotate(5deg)}}
 #msg.error{color:#ffd2cc;background:#3a1420;border:1px solid #a84a55;border-radius:12px;padding:12px}
+#version-notice{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#3a2412;color:#ffe1a8;border:1px solid #ffb15a;border-radius:999px;padding:8px 14px;font:600 14px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 24px #0008}
 @media (prefers-reduced-motion:reduce){.candle span{animation:none;opacity:1}}
 </style></head><body><main>
 <h1>🌼 Light a candle for your ancestors</h1>
+<button type="button" id="version-notice" hidden>Updated, refresh</button>
 <p>Every ancestor whose temple work was finished this past year becomes a glowing light on the big screen. It takes about a minute!</p>
 <div class="tabs">Showing steps for <b id="osname"></b> · <a href="#" data-os="ios">iPhone</a><a href="#" data-os="android">Android</a></div>
 
@@ -67,7 +69,7 @@ box-shadow:0 0 14px 5px #ff9a1aaa;transform-origin:50% 100%;animation:light 1.05
 <div id="msg" role="status" aria-live="polite"></div></div>
 
 <p class="muted">Privacy: we keep only each person’s FamilySearch ID (so nobody’s counted twice), the place, and the ordinance types. Names are never stored or shown. The screen shows the place and the ordinance, never a name or ID.</p>
-</main><script src="/upload-status.js"></script><script>
+</main><script src="/version.js"></script><script src="/upload-status.js"></script><script>
 const ua=navigator.userAgent, isIOS=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
 function setOS(os){document.querySelectorAll('.os').forEach(e=>e.style.display=e.classList.contains(os)?'':'none');osname.textContent=os=='ios'?'iPhone':'Android';}
 setOS(new URLSearchParams(location.search).get('os')||(isIOS?'ios':'android'));
@@ -170,4 +172,12 @@ csv.onchange=async()=>{
   csv.value='';
  }
 };
+const versionNotice=document.getElementById('version-notice');
+versionNotice.onclick=()=>{ if(!busy) location.reload(); };
+Version.watch({
+ mode:'upload',
+ idle(){ return !busy && !(csv.files&&csv.files.length) && result.hidden; },
+ reload(){ location.reload(); },
+ notice(){ versionNotice.hidden=false; },
+});
 </script></body></html>

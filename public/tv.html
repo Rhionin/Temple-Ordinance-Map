@@ -88,6 +88,7 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 </aside>
 <button id="reset" type="button" aria-label="Reset lights" title="Reset">↺</button>
 <p id="reset-note" hidden></p>
+<script src="/version.js"></script>
 <script src="/spotlight.js"></script>
 <script src="/timeline.js"></script>
 <script>
@@ -300,6 +301,7 @@ function startTimeline() {
   tickTimeline();
 }
 function finishTimeline() {
+  if (versions.boundary()) return;
   clearTimeout(timer);
   clearMarkers();
   if (playMode === 'alternate') startSpotlight();
@@ -349,7 +351,12 @@ function focusOf(light) {
   if (entry && entry.marker) return entry.marker.getLatLng();
   return [Number(light.lat), Number(light.lon)];
 }
+const versions = Version.watch({
+  mode: 'tv',
+  reload() { location.reload(); },
+});
 function runStep() {
+  if (versions.boundary()) return;
   if (act !== 'spotlight') return;
   const step = rotation.next();
   mode = step.type;
