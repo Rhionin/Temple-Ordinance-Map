@@ -12,11 +12,12 @@ export function d1Store(db) {
       return [...(lights.results || []), ...(jobs.results || [])].map(row => row.person_id);
     },
     async known() {
-      const lights = await db.prepare('SELECT person_id, ordinance FROM lights').all();
-      const jobs = await db.prepare("SELECT person_id, ordinance FROM jobs WHERE status = 'pending'").all();
+      const lights = await db.prepare('SELECT person_id, ordinance, month FROM lights').all();
+      const jobs = await db.prepare("SELECT person_id, ordinance, month FROM jobs WHERE status = 'pending'").all();
       return [...(lights.results || []), ...(jobs.results || [])].map(row => ({
         id: row.person_id,
         ordinance: row.ordinance,
+        month: row.month,
       }));
     },
     async maxCreated() {
@@ -42,7 +43,7 @@ export function d1Store(db) {
     async listLights(since) {
       const min = Number(since) || 0;
       const rows = await db.prepare(
-        `SELECT place, lat, lon, ordinance, created, updated
+        `SELECT place, lat, lon, ordinance, created, updated, month
          FROM lights
          WHERE created > ? OR updated > ?
          ORDER BY created`
@@ -51,38 +52,52 @@ export function d1Store(db) {
     },
     async insertLight(light) {
       const result = await db.prepare(
-        `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated, month)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(person_id) DO NOTHING`
       ).bind(
         light.id, light.place, light.lat, light.lon, light.ordinance || '',
-        light.created, light.updated || light.created
+        light.created, light.updated || light.created, light.month || null
       ).run();
       return result.meta.changes > 0;
     },
     async mergeOrdinances(merge) {
       const ordinance = serializeOrdinances(merge.ordinance);
+      const month = merge.month || null;
       const light = await db.prepare(
-        'UPDATE lights SET ordinance = ?, updated = ? WHERE person_id = ?'
-      ).bind(ordinance, merge.updated, merge.id).run();
+        'UPDATE lights SET ordinance = ?, updated = ?, month = COALESCE(?, month) WHERE person_id = ?'
+      ).bind(ordinance, merge.updated, month, merge.id).run();
       if (light.meta.changes > 0) return true;
       const job = await db.prepare(
-        "UPDATE jobs SET ordinance = ? WHERE person_id = ? AND status = 'pending'"
-      ).bind(ordinance, merge.id).run();
+        "UPDATE jobs SET ordinance = ?, month = COALESCE(?, month) WHERE person_id = ? AND status = 'pending'"
+      ).bind(ordinance, month, merge.id).run();
+      return job.meta.changes > 0;
+    },
+    async setMonth(update) {
+      const month = update.month || null;
+      if (!month) return false;
+      const light = await db.prepare(
+        'UPDATE lights SET month = ?, updated = ? WHERE person_id = ? AND (month IS NULL OR month > ?)'
+      ).bind(month, update.updated, update.id, month).run();
+      if (light.meta.changes > 0) return true;
+      const job = await db.prepare(
+        "UPDATE jobs SET month = ? WHERE person_id = ? AND status = 'pending' AND (month IS NULL OR month > ?)"
+      ).bind(month, update.id, month).run();
       return job.meta.changes > 0;
     },
     async insertJob(job) {
       const result = await db.prepare(
-        `INSERT INTO jobs (person_id, place, ordinance, created, cursor_idx, status)
-         VALUES (?, ?, ?, ?, ?, 'pending')
+        `INSERT INTO jobs (person_id, place, ordinance, created, cursor_idx, status, month)
+         VALUES (?, ?, ?, ?, ?, 'pending', ?)
          ON CONFLICT(person_id) DO UPDATE SET
            place = excluded.place,
            ordinance = excluded.ordinance,
            created = excluded.created,
            cursor_idx = excluded.cursor_idx,
-           status = 'pending'
+           status = 'pending',
+           month = excluded.month
          WHERE jobs.status = 'failed'`
-      ).bind(job.id, job.place, job.ordinance || '', job.created, job.cursor || 0).run();
+      ).bind(job.id, job.place, job.ordinance || '', job.created, job.cursor || 0, job.month || null).run();
       return result.meta.changes > 0;
     },
     async clearLights() {
