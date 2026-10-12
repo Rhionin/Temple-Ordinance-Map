@@ -1,30 +1,208 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Temple Ordinance Lights</title>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Temple Ordinance Lights</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>html,body,#map{margin:0;height:100%;background:#07040c;font-family:Georgia,serif}
+<style>
+html,body,#map{margin:0;height:100%;background:#07040c;font-family:Georgia,serif}
 .leaflet-container{background:#07040c}
+.leaflet-div-icon,.candle-icon{background:transparent;border:none}
 #hud{position:fixed;top:24px;left:32px;z-index:999;color:#ffd08a;text-shadow:0 0 14px #ff7a00}
 #hud h1{margin:0;font-size:42px;color:#ffa31a}#count{font-size:72px;font-weight:bold;color:#fff3d6}
 #ticker{position:fixed;bottom:0;left:0;right:0;z-index:999;padding:14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
 .glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(#fff8e0 0,#ffcf4d 30%,#ff8a00 60%,transparent 72%);
 box-shadow:0 0 12px 5px #ff9a1a99,0 0 30px 12px #ff6a0055;animation:pop 1.6s ease-out,flick 2.4s infinite alternate}
+.glow.bloom{filter:brightness(1.45);box-shadow:0 0 22px 14px #fff3c8ee,0 0 60px 28px #ffb000cc}
 @keyframes pop{0%{transform:scale(6);opacity:0}60%{transform:scale(1.6);opacity:1}100%{transform:scale(1)}}
 @keyframes flick{0%{opacity:.75}25%{opacity:1}50%{opacity:.85}70%{opacity:.98}100%{opacity:.8}}
+#card{position:fixed;right:40px;bottom:92px;z-index:1000;width:min(400px,calc(100% - 48px));padding:22px 26px 18px;color:#fff6e4;
+background:linear-gradient(165deg,rgba(62,36,18,.9),rgba(18,10,24,.84));border:1px solid rgba(255,196,120,.45);border-radius:22px;
+box-shadow:0 20px 50px rgba(0,0,0,.4),0 0 40px rgba(255,140,40,.16);backdrop-filter:blur(10px);
+opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s ease,transform .8s ease}
+#card.show{opacity:1;transform:none}
+#card .kicker{margin:0;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#e7b56a}
+#card h2{margin:8px 0;font-size:30px;font-weight:normal;line-height:1.25;color:#fff1d4}
+#card .ord{margin:0;font-size:20px;line-height:1.4;color:#ffd08a;text-shadow:0 0 12px #ff7a0066}
+#card .region{margin:12px 0 0;font-size:15px;color:#d9c4ae}
 .leaflet-control-attribution{background:#0008!important;color:#776!important}.leaflet-control-attribution a{color:#998!important}
-</style></head><body><div id="map"></div>
+@media (max-width:700px){
+  #hud{top:14px;left:14px}#hud h1{font-size:26px}#count{font-size:46px}
+  #ticker{font-size:18px;padding:12px 16px}
+  #card{left:16px;right:16px;bottom:72px;width:auto;padding:16px 18px}
+  #card h2{font-size:24px}#card .ord{font-size:17px}
+}
+@media (prefers-reduced-motion:reduce){
+  .glow,.glow.bloom{animation:none}
+  #card{transition:none}
+}
+</style></head><body>
+<div id="map"></div>
 <div id="hud"><h1>🌼 Nuestros Antepasados 🌼</h1><div><span id="count">0</span> <span style="font-size:28px">lights of temple work this year</span></div></div>
 <div id="ticker">&nbsp;</div>
+<aside id="card" role="status" aria-live="polite" aria-hidden="true">
+  <p class="kicker">Featured light</p>
+  <h2 id="card-place"></h2>
+  <p id="card-ord" class="ord"></p>
+  <p id="card-region" class="region"></p>
+</aside>
+<script src="/spotlight.js"></script>
 <script>
-const map=L.map('map',{zoomControl:false,worldCopyJump:true}).setView([25,0],2.4);
-// Self-hosted Natural Earth countries (no tile provider / API key needed)
-fetch('/world.geojson').then(r=>r.json()).then(g=>L.geoJSON(g,{interactive:false,style:{color:'#6b3f8a',weight:.7,fillColor:'#1d1230',fillOpacity:1}}).addTo(map).bringToBack());
+const WORLD = { center: [25, 0], zoom: 2.4 };
+const SPOT_ZOOM = 4.8;
+const DWELL_MS = 9000;
+const map = L.map('map', { zoomControl: false, worldCopyJump: true }).setView(WORLD.center, WORLD.zoom);
+fetch('/world.geojson').then(r => r.json()).then(g => L.geoJSON(g, { interactive: false, style: { color: '#6b3f8a', weight: .7, fillColor: '#1d1230', fillOpacity: 1 } }).addTo(map).bringToBack());
 map.attributionControl.addAttribution('Natural Earth');
-let n=0;const seen=new Set(); let since=0; const shown=new Set();
-function add(l,delay=0){const id=(l.created||0)+'|'+l.lat+'|'+l.lon+'|'+l.place; if(shown.has(id))return; shown.add(id);
- const k=l.lat.toFixed(3)+','+l.lon.toFixed(3);n++;count.textContent=n;
- setTimeout(()=>{const j=(seen.has(k)?(Math.random()-.5)*.3:0);seen.add(k);
-  const el=L.divIcon({className:'',html:`<div class="glow" style="animation-delay:0s,${(Math.random()*2).toFixed(2)}s"></div>`,iconSize:[14,14]});
-  L.marker([l.lat+j,l.lon+j],{icon:el,interactive:false}).addTo(map);ticker.textContent='🕯️ '+l.place;},delay);}
-async function poll(initial){try{const r=await fetch('/api/lights?since='+since,{cache:'no-store'}); const a=await r.json();
- a.forEach((l,i)=>{if(l.created>since)since=l.created; add(l,initial?i*120:0);});}catch(e){}}
-poll(true); setInterval(()=>poll(false),2000);
+
+const cardPlace = document.getElementById('card-place');
+const cardOrd = document.getElementById('card-ord');
+const cardRegion = document.getElementById('card-region');
+const rotation = Spotlight.createRotation({ every: 4 });
+const markers = new Map();
+const spots = new Set();
+let since = 0;
+let ready = false;
+let polling = false;
+let countN = 0;
+let bloomKey = null;
+let currentKey = null;
+let mode = 'idle';
+let timer = 0;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function flyOpts() {
+  return { animate: !reduceMotion, duration: reduceMotion ? 0.01 : 2.8, easeLinearity: 0.25 };
+}
+function noteSince(light) {
+  const stamp = Number(light.updated || light.created) || 0;
+  if (stamp > since) since = stamp;
+}
+function paint(entry) {
+  if (entry.marker) return;
+  const light = entry.light;
+  const coordKey = Number(light.lat).toFixed(3) + ',' + Number(light.lon).toFixed(3);
+  let lat = Number(light.lat);
+  let lon = Number(light.lon);
+  if (spots.has(coordKey)) {
+    lat += (Math.random() - 0.5) * 0.3;
+    lon += (Math.random() - 0.5) * 0.3;
+  }
+  spots.add(coordKey);
+  const icon = L.divIcon({
+    className: 'candle-icon',
+    html: '<div class="glow" style="animation-delay:0s,' + (Math.random() * 2).toFixed(2) + 's"></div>',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+  entry.marker = L.marker([lat, lon], { icon: icon, interactive: false }).addTo(map);
+  const root = entry.marker.getElement();
+  entry.el = root ? root.querySelector('.glow') : null;
+  if (entry.el && bloomKey === entry.key) entry.el.classList.add('bloom');
+}
+function present(light, delay) {
+  const key = Spotlight.lightKey(light);
+  const existing = markers.get(key);
+  if (existing) {
+    existing.light = light;
+    if (!existing.marker) {
+      clearTimeout(existing.timer);
+      paint(existing);
+    }
+    return existing;
+  }
+  const entry = { key, light, el: null, marker: null, timer: 0 };
+  markers.set(key, entry);
+  countN += 1;
+  count.textContent = String(countN);
+  if (delay > 0) entry.timer = setTimeout(() => paint(entry), delay);
+  else paint(entry);
+  return entry;
+}
+function setBloom(key) {
+  if (bloomKey && bloomKey !== key) {
+    const prev = markers.get(bloomKey);
+    if (prev && prev.el) prev.el.classList.remove('bloom');
+  }
+  bloomKey = key;
+  if (!key) return;
+  const entry = markers.get(key);
+  if (entry && entry.el) entry.el.classList.add('bloom');
+}
+function showCard(light) {
+  const caption = Spotlight.captionFor(light, rotation.all());
+  cardPlace.textContent = caption.place;
+  cardOrd.textContent = caption.ordinancesText;
+  cardRegion.textContent = caption.regionText;
+  cardRegion.hidden = !caption.regionText;
+  card.classList.add('show');
+  card.setAttribute('aria-hidden', 'false');
+  ticker.textContent = '🕯️ ' + caption.place;
+}
+function hideCard() {
+  card.classList.remove('show');
+  card.setAttribute('aria-hidden', 'true');
+}
+function focusOf(light) {
+  const entry = markers.get(Spotlight.lightKey(light));
+  if (entry && entry.marker) return entry.marker.getLatLng();
+  return [Number(light.lat), Number(light.lon)];
+}
+function runStep() {
+  const step = rotation.next();
+  mode = step.type;
+  if (step.type === 'light') {
+    currentKey = step.light.key;
+    present(step.light, 0);
+    setBloom(currentKey);
+    showCard(step.light);
+    map.flyTo(focusOf(step.light), SPOT_ZOOM, flyOpts());
+  } else if (step.type === 'world') {
+    currentKey = null;
+    setBloom(null);
+    hideCard();
+    map.flyTo(WORLD.center, WORLD.zoom, flyOpts());
+  } else {
+    currentKey = null;
+    setBloom(null);
+    hideCard();
+  }
+  timer = setTimeout(runStep, step.type === 'idle' ? 2000 : DWELL_MS);
+}
+function wake() {
+  if (mode !== 'idle') return;
+  clearTimeout(timer);
+  timer = setTimeout(runStep, 700);
+}
+async function poll() {
+  if (polling) return;
+  polling = true;
+  try {
+    const response = await fetch('/api/lights?since=' + since, { cache: 'no-store' });
+    const rows = await response.json();
+    if (!Array.isArray(rows)) return;
+    if (!ready) {
+      rows.forEach(noteSince);
+      rotation.seed(rows);
+      rows.forEach((light, index) => present(light, Math.min(index * 90, 1500)));
+      ready = true;
+      runStep();
+      return;
+    }
+    let arrived = 0;
+    for (const light of rows) {
+      noteSince(light);
+      if (rotation.has(light)) {
+        rotation.update(light);
+        if (Spotlight.lightKey(light) === currentKey) showCard(rotation.get(light));
+      } else {
+        rotation.arrive(light);
+        present(light, 0);
+        ticker.textContent = '🕯️ ' + light.place;
+        arrived += 1;
+      }
+    }
+    if (arrived) wake();
+  } catch (error) { /* keep the map up; the next poll retries */ }
+  finally { polling = false; }
+}
+poll();
+setInterval(poll, 2000);
 </script></body></html>

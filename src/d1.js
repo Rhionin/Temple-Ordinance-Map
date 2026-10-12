@@ -1,5 +1,8 @@
 // D1 access for lights, the place cache, and the geocode queue.
-// Stored columns: person id, place, lat/lon, ordinance, created. Never a name.
+// Stored columns: person id, place, lat/lon, ordinance list, created, updated.
+// Never a name. created stays put when ordinances are merged; updated moves.
+
+import { serializeOrdinances } from '../lib/ordinances.js';
 
 export function d1Store(db) {
   return {
@@ -8,9 +11,21 @@ export function d1Store(db) {
       const jobs = await db.prepare("SELECT person_id FROM jobs WHERE status = 'pending'").all();
       return [...(lights.results || []), ...(jobs.results || [])].map(row => row.person_id);
     },
+    async known() {
+      const lights = await db.prepare('SELECT person_id, ordinance FROM lights').all();
+      const jobs = await db.prepare("SELECT person_id, ordinance FROM jobs WHERE status = 'pending'").all();
+      return [...(lights.results || []), ...(jobs.results || [])].map(row => ({
+        id: row.person_id,
+        ordinance: row.ordinance,
+      }));
+    },
     async maxCreated() {
       const row = await db.prepare(
-        'SELECT MAX(created) AS created FROM (SELECT created FROM lights UNION ALL SELECT created FROM jobs)'
+        `SELECT MAX(stamp) AS created FROM (
+           SELECT created AS stamp FROM lights
+           UNION ALL SELECT updated AS stamp FROM lights
+           UNION ALL SELECT created AS stamp FROM jobs
+         )`
       ).first();
       return row && row.created ? row.created : 0;
     },
@@ -25,18 +40,36 @@ export function d1Store(db) {
       return cache;
     },
     async listLights(since) {
+      const min = Number(since) || 0;
       const rows = await db.prepare(
-        'SELECT place, lat, lon, created FROM lights WHERE created > ? ORDER BY created'
-      ).bind(Number(since) || 0).all();
+        `SELECT place, lat, lon, ordinance, created, updated
+         FROM lights
+         WHERE created > ? OR updated > ?
+         ORDER BY created`
+      ).bind(min, min).all();
       return rows.results || [];
     },
     async insertLight(light) {
       const result = await db.prepare(
-        `INSERT INTO lights (person_id, place, lat, lon, ordinance, created)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(person_id) DO NOTHING`
-      ).bind(light.id, light.place, light.lat, light.lon, light.ordinance || '', light.created).run();
+      ).bind(
+        light.id, light.place, light.lat, light.lon, light.ordinance || '',
+        light.created, light.updated || light.created
+      ).run();
       return result.meta.changes > 0;
+    },
+    async mergeOrdinances(merge) {
+      const ordinance = serializeOrdinances(merge.ordinance);
+      const light = await db.prepare(
+        'UPDATE lights SET ordinance = ?, updated = ? WHERE person_id = ?'
+      ).bind(ordinance, merge.updated, merge.id).run();
+      if (light.meta.changes > 0) return true;
+      const job = await db.prepare(
+        "UPDATE jobs SET ordinance = ? WHERE person_id = ? AND status = 'pending'"
+      ).bind(ordinance, merge.id).run();
+      return job.meta.changes > 0;
     },
     async insertJob(job) {
       const result = await db.prepare(

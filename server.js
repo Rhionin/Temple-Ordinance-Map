@@ -8,6 +8,7 @@ const { candidates } = require('./lib/places');
 const { nominatimUrl, parseNominatimBody } = require('./lib/nominatim');
 const { MIN_GAP_MS } = require('./lib/geostep');
 const { toPublic, nextCreated } = require('./lib/lights');
+const { serializeOrdinances } = require('./lib/ordinances');
 const { analyze, parseDate } = require('./lib/fscsv');
 
 const PORT = process.env.PORT || 3000;
@@ -61,10 +62,16 @@ function remember(light) {
   save();
   publish(light);
 }
+function touch(light, ordinance, updated) {
+  light.ordinance = ordinance;
+  light.updated = updated;
+  save();
+  publish(light);
+}
 
 async function ingest(text) {
-  const existingIds = new Set(lights.map(light => light.id));
-  const plan = planUpload(text, { existingIds, cache });
+  const existing = lights.map(light => ({ id: light.id, ordinance: light.ordinance }));
+  const plan = planUpload(text, { existing, cache });
   if (!plan.ok) {
     const error = new Error(plan.reason);
     error.status = 400;
@@ -79,17 +86,23 @@ async function ingest(text) {
       }
     }
   }
-  let created = lights.reduce((max, light) => Math.max(max, light.created || light.added || 0), 0);
+  let created = lights.reduce((max, light) => Math.max(max, light.updated || 0, light.created || light.added || 0), 0);
+  for (const merge of plan.merges || []) {
+    const light = lights.find(item => item.id === merge.id);
+    if (!light) continue;
+    created = nextCreated(Date.now(), created);
+    touch(light, serializeOrdinances(merge.ordinances), created);
+  }
   for (const row of plan.immediate) {
     created = nextCreated(Date.now(), created);
-    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, created });
+    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, created, updated: created });
   }
   for (const job of plan.pending) {
     const coord = await geocode(job.place);
     plan.stats.queued--;
     if (!coord) { plan.stats.unresolved.push(job.place); continue; }
     created = nextCreated(Date.now(), created);
-    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, created });
+    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, created, updated: created });
     plan.stats.added++;
     plan.stats.geocoded++;
   }
@@ -99,7 +112,7 @@ async function ingest(text) {
 const fileStore = {
   async listLights(since) {
     const min = Number(since) || 0;
-    return lights.filter(light => (light.created || light.added || 0) > min);
+    return lights.filter(light => Math.max(light.updated || 0, light.created || light.added || 0) > min);
   },
   async clearLights() {
     lights = [];
@@ -154,6 +167,11 @@ const server = http.createServer(async (req, res) => {
     sseClients.add(res);
     req.on('close', () => sseClients.delete(res));
     return;
+  }
+  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js' }[url.pathname];
+  if (script) {
+    res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
+    return res.end(fs.readFileSync(path.join(__dirname, 'public', script)));
   }
   const page = { '/': 'upload.html', '/tv': 'tv.html' }[url.pathname];
   if (url.pathname === '/world.geojson') {

@@ -11,6 +11,23 @@ a{color:#ffc04d}.step{background:#21132e;border:1px solid #5a2d6e;border-radius:
 details{margin-top:8px;color:#d9c6e6}summary{cursor:pointer;color:#ffc04d}input[type=file]{display:none}
 #msg{margin-top:10px;min-height:1.4em;font-size:1.05em}.muted{color:#b9a3c9;font-size:.88em}.tabs{font-size:.85em;color:#b9a3c9;text-align:right}
 .tabs a{margin-left:6px}
+#result{margin-top:14px;padding:16px 16px 14px;border-radius:16px;background:linear-gradient(#3a2412,#21132e);border:1px solid #ffb15a;text-align:center;box-shadow:0 0 24px #ff7a0033}
+#result h2{margin:0 0 10px;font-family:Georgia,serif;font-size:1.35em;font-weight:normal;color:#ffe1a8;line-height:1.3}
+#result dl{margin:0;text-align:left}
+#result dl div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid #5a3a28}
+#result dt{color:#f0d7b8}#result dd{margin:0;font-weight:700;color:#fff6e4}
+#result-progress{min-height:1.3em;color:#ffd08a;font-size:.95em}
+.candles{display:flex;justify-content:center;align-items:flex-end;gap:22px;height:86px;margin:2px 0 8px}
+.candle{width:10px;height:28px;border-radius:2px;background:linear-gradient(#fff6e4,#e7c98a);position:relative;box-shadow:0 6px 10px #0006}
+.candle span{position:absolute;left:50%;bottom:24px;width:14px;height:20px;margin-left:-7px;border-radius:50% 50% 42% 42%;
+background:radial-gradient(circle at 50% 72%,#fff8d8,#ffd36a 36%,#ff8a00 64%,transparent 72%);
+box-shadow:0 0 14px 5px #ff9a1aaa;transform-origin:50% 100%;animation:light 1.05s ease-out both,sway 1.8s ease-in-out infinite}
+.candle:nth-child(2) span{animation-delay:.28s,.28s;height:24px}
+.candle:nth-child(3) span{animation-delay:.56s,.56s}
+@keyframes light{0%{transform:scale(.15);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes sway{0%,100%{transform:scale(1) rotate(-5deg)}50%{transform:scale(1.06) rotate(5deg)}}
+#msg.error{color:#ffd2cc;background:#3a1420;border:1px solid #a84a55;border-radius:12px;padding:12px}
+@media (prefers-reduced-motion:reduce){.candle span{animation:none;opacity:1}}
 </style></head><body><main>
 <h1>🌼 Light a candle for your ancestors</h1>
 <p>Every ancestor whose temple work was finished this past year becomes a glowing light on the big screen. It takes about a minute!</p>
@@ -34,20 +51,113 @@ details{margin-top:8px;color:#d9c6e6}summary{cursor:pointer;color:#ffc04d}input[
 <label class="btn">📄 Choose my list<input type="file" id="csv" accept=".csv,text/csv,text/plain,.txt,text/comma-separated-values,application/vnd.ms-excel"></label>
 <p class="os ios muted">Tap <b>Browse</b> › <b>Downloads</b> (or look in <b>Recents</b>). The file may be called something like “completed.csv” or end in “(1)” — that’s fine.</p>
 <p class="os android muted">Look in <b>Downloads</b> (or <b>Recent</b>). Any name ending in .csv or .txt works.</p>
-<div id="msg"></div></div>
+<div id="result" hidden>
+<div class="candles" aria-hidden="true"><div class="candle"><span></span></div><div class="candle"><span></span></div><div class="candle"><span></span></div></div>
+<h2 id="result-title"></h2>
+<dl>
+<div><dt>Past-year ordinances found</dt><dd id="count-year">0</dd></div>
+<div><dt>New lights added</dt><dd id="count-new">0</dd></div>
+<div><dt>Already on the map</dt><dd id="count-dup">0</dd></div>
+</dl>
+<p id="result-progress"></p>
+<a class="btn" id="see-map" href="/tv">See the map</a>
+</div>
+<div id="msg" role="status" aria-live="polite"></div></div>
 
-<p class="muted">Privacy: we keep only each person’s FamilySearch ID (so nobody’s counted twice), the place, and the ordinance type. Names are never stored or shown. The screen shows place lights only.</p>
-</main><script>
+<p class="muted">Privacy: we keep only each person’s FamilySearch ID (so nobody’s counted twice), the place, and the ordinance types. Names are never stored or shown. The screen shows the place and the ordinance, never a name or ID.</p>
+</main><script src="/upload-status.js"></script><script>
 const ua=navigator.userAgent, isIOS=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
 function setOS(os){document.querySelectorAll('.os').forEach(e=>e.style.display=e.classList.contains(os)?'':'none');osname.textContent=os=='ios'?'iPhone':'Android';}
 setOS(new URLSearchParams(location.search).get('os')||(isIOS?'ios':'android'));
 document.querySelectorAll('[data-os]').forEach(a=>a.onclick=e=>{e.preventDefault();setOS(a.dataset.os)});
 cp.onclick=async()=>{try{await navigator.clipboard.writeText(u.value)}catch{u.select();document.execCommand('copy')}cp.textContent='Copied!';setTimeout(()=>cp.textContent='Copy',2000)};
-csv.onchange=async()=>{const f=csv.files[0];if(!f)return;const t=await f.text();
- if(!/(^|[",;\t])[A-Z0-9]{4}-[A-Z0-9]{2,4}([",;\t]|$)/m.test(t.slice(0,3000))){msg.textContent='🤔 That doesn’t look like the Completed list. Try the file from step 2.';return}
- msg.textContent='✨ Lighting candles… places show up on the screen as they are found';
- try{const r=await fetch('/api/upload',{method:'POST',body:t});const s=await r.json();if(s.error)throw new Error(s.error);
- const ready=(s.added||0)+(s.queued||0);
- msg.innerHTML=`🕯️ <b>${ready}</b> lights from this past year`+(s.queued?` — ${s.queued} still finding a place; they appear on the screen one by one`:'')+(s.duplicate?` (${s.duplicate} already glowing)`:'')+'. Look at the screen!';}
- catch(e){msg.textContent='Sorry, something went wrong: '+e.message}};
+const resultTitle=document.getElementById('result-title');
+const countYear=document.getElementById('count-year');
+const countNew=document.getElementById('count-new');
+const countDup=document.getElementById('count-dup');
+const resultProgress=document.getElementById('result-progress');
+let busy=false, pollTimer=0;
+function showError(text){
+ clearInterval(pollTimer);
+ result.hidden=true;
+ msg.className='error';
+ msg.textContent=text;
+}
+function showSuccess(view){
+ msg.className='';
+ msg.textContent='';
+ result.hidden=false;
+ resultTitle.textContent=view.title;
+ countYear.textContent=String(view.pastYear);
+ countNew.textContent=String(view.added);
+ countDup.textContent=String(view.duplicate);
+ resultProgress.textContent='';
+}
+async function baselineStamp(){
+ try{
+  const response=await fetch('/api/lights?since=0',{cache:'no-store'});
+  if(!response.ok)return null;
+  const rows=await response.json();
+  if(!Array.isArray(rows)||!rows.length)return 0;
+  return rows.reduce((max,light)=>Math.max(max,Number(light.updated||light.created)||0),0);
+ }catch(error){return null}
+}
+function watchProgress(since,view){
+ clearInterval(pollTimer);
+ if(!view.arriving){resultProgress.textContent='';return}
+ const started=Date.now();
+ const tick=async()=>{
+  let found=view.added, stalled=false;
+  try{
+   const response=await fetch('/api/lights?since='+since,{cache:'no-store'});
+   if(response.ok){
+    const rows=await response.json();
+    if(Array.isArray(rows)) found=Math.max(view.added, Math.min(view.arriving, rows.length));
+   }
+  }catch(error){}
+  if(Date.now()-started>180000 && found<view.arriving) stalled=true;
+  countNew.textContent=String(found);
+  resultProgress.textContent=UploadStatus.describeProgress(found, view.arriving, stalled);
+  if(found>=view.arriving){resultTitle.textContent=view.doneTitle; clearInterval(pollTimer)}
+  else if(stalled) clearInterval(pollTimer);
+ };
+ tick();
+ pollTimer=setInterval(tick,2000);
+}
+csv.onchange=async()=>{
+ if(busy)return;
+ const file=csv.files[0];
+ if(!file)return;
+ busy=true;
+ clearInterval(pollTimer);
+ result.hidden=true;
+ msg.className='';
+ try{
+  const text=await file.text();
+  if(!/(^|[",;\t])[A-Z0-9]{4}-[A-Z0-9]{2,4}([",;\t]|$)/m.test(text.slice(0,3000))){
+   showError(UploadStatus.describeError('file'));
+   return;
+  }
+  msg.textContent='Lighting the candles…';
+  const since=await baselineStamp();
+  let response;
+  try{ response=await fetch('/api/upload',{method:'POST',body:text}); }
+  catch(error){ showError(UploadStatus.describeError('network')); return; }
+  let stats={};
+  try{ stats=await response.json(); }catch(error){ stats={}; }
+  if(!response.ok||stats.error){
+   showError(UploadStatus.describeError('server', stats.error||'Try again.'));
+   return;
+  }
+  const view=UploadStatus.describeUpload(stats);
+  if(view.kind!=='success'){ showError(view.message); return; }
+  showSuccess(view);
+  if(since!=null) watchProgress(since, view);
+ }catch(error){
+  showError(UploadStatus.describeError('server', error.message));
+ }finally{
+  busy=false;
+  csv.value='';
+ }
+};
 </script></body></html>
