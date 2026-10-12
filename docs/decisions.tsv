@@ -1,0 +1,4 @@
+ts	phase	decision	why	evidence	result
+2026-10-12T04:46:17Z	start	overnight audit of the temple ordinance map	the operator left a full run and asked for architecture, issues, and focused PRs	user query	open
+2026-10-12T04:46:49Z	frame	treat the night as done when ARCHITECTURE.md is on a PR, each worth-doing finding has an issue, and the high-impact fixes are open PRs with Tests green	the operator asked for that set and said not to merge or call production reset	docs/decisions.tsv	predicate set
+2026-10-12T04:47:32Z	onboard	wrote docs/ARCHITECTURE.md from the Worker, D1, geocoder, and TV code on main	the next engineer needs one map of the two runtimes before the audit PRs land	docs/ARCHITECTURE.md	doc written, tests not required
