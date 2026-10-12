@@ -126,6 +126,14 @@ function watchProgress(since,view){
  tick();
  pollTimer=setInterval(tick,2000);
 }
+function sharerId(){
+ try{
+  const key='tom-sharer';
+  let id=localStorage.getItem(key);
+  if(!id){ id=crypto.randomUUID(); localStorage.setItem(key, id); }
+  return id;
+ }catch(error){ return ''; }
+}
 csv.onchange=async()=>{
  if(busy)return;
  const file=csv.files[0];
@@ -143,7 +151,7 @@ csv.onchange=async()=>{
   msg.textContent='Lighting the candles…';
   const since=await baselineStamp();
   let response;
-  try{ response=await fetch('/api/upload',{method:'POST',body:text}); }
+  try{ response=await fetch('/api/upload',{method:'POST',headers:{'X-Sharer':sharerId()},body:text}); }
   catch(error){ showError(UploadStatus.describeError('network')); return; }
   let stats={};
   try{ stats=await response.json(); }catch(error){ stats={}; }

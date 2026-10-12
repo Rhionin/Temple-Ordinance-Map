@@ -10,17 +10,21 @@ const { MIN_GAP_MS } = require('./lib/geostep');
 const { toPublic, nextCreated } = require('./lib/lights');
 const { serializeOrdinances } = require('./lib/ordinances');
 const { analyze, parseDate } = require('./lib/fscsv');
+const { countryForLight, fillCountries } = require('./lib/country');
+const { tally } = require('./lib/stats');
+const { countsAsShare, sharerBasis, hashSharer } = require('./lib/sharers');
 
 const PORT = process.env.PORT || 3000;
 const DATA = path.join(__dirname, 'data');
-const CACHE_F = path.join(DATA, 'geocache.json'), LIGHTS_F = path.join(DATA, 'lights.json'), UNRES_F = path.join(DATA, 'unresolved.log');
+const CACHE_F = path.join(DATA, 'geocache.json'), LIGHTS_F = path.join(DATA, 'lights.json'), SHARERS_F = path.join(DATA, 'sharers.json'), UNRES_F = path.join(DATA, 'unresolved.log');
 const UA = process.env.GEOCODE_UA || 'temple-ordinance-map/1.0';
 const load = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
-let cache = load(CACHE_F, {}), lights = load(LIGHTS_F, []);
+let cache = load(CACHE_F, {}), lights = load(LIGHTS_F, []), sharers = new Set(load(SHARERS_F, []));
 const save = () => {
   fs.mkdirSync(DATA, { recursive: true });
   fs.writeFileSync(CACHE_F, JSON.stringify(cache, null, 1));
   fs.writeFileSync(LIGHTS_F, JSON.stringify(lights));
+  fs.writeFileSync(SHARERS_F, JSON.stringify([...sharers]));
 };
 
 let last = 0;
@@ -70,7 +74,7 @@ function touch(light, ordinance, updated, month) {
   publish(light);
 }
 
-async function ingest(text) {
+async function ingest(text, sharerHeader) {
   const existing = lights.map(light => ({ id: light.id, ordinance: light.ordinance }));
   const plan = planUpload(text, { existing, cache });
   if (!plan.ok) {
@@ -102,16 +106,20 @@ async function ingest(text) {
   }
   for (const row of plan.immediate) {
     created = nextCreated(Date.now(), created);
-    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, month: row.month || null, created, updated: created });
+    remember({ id: row.id, place: row.place, lat: row.lat, lon: row.lon, ordinance: row.ordinance, month: row.month || null, country: countryForLight(row), created, updated: created });
   }
   for (const job of plan.pending) {
     const coord = await geocode(job.place);
     plan.stats.queued--;
     if (!coord) { plan.stats.unresolved.push(job.place); continue; }
     created = nextCreated(Date.now(), created);
-    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, month: job.month || null, created, updated: created });
+    remember({ id: job.id, place: job.place, lat: coord.lat, lon: coord.lon, ordinance: job.ordinance, month: job.month || null, country: countryForLight(coord), created, updated: created });
     plan.stats.added++;
     plan.stats.geocoded++;
+  }
+  if (countsAsShare(plan.stats)) {
+    const hash = await hashSharer(sharerBasis(sharerHeader, text));
+    if (hash && !sharers.has(hash)) { sharers.add(hash); save(); }
   }
   return plan.stats;
 }
@@ -123,7 +131,18 @@ const fileStore = {
   },
   async clearLights() {
     lights = [];
+    sharers = new Set();
     save();
+  },
+  async noteSharer(hash) {
+    if (!hash || sharers.has(hash)) return;
+    sharers.add(hash);
+    save();
+  },
+  async stats() {
+    const updates = fillCountries(lights);
+    if (updates.length) save();
+    return { ...tally(lights), sharers: sharers.size };
   },
 };
 
@@ -154,7 +173,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/upload') {
     try {
       const body = await readBody(req);
-      const stats = await ingest(body.toString('utf8'));
+      const stats = await ingest(body.toString('utf8'), req.headers['x-sharer']);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(stats));
     } catch (error) {
@@ -164,7 +183,7 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
-  if (url.pathname === '/api/lights' || url.pathname === '/api/reset') {
+  if (url.pathname === '/api/lights' || url.pathname === '/api/reset' || url.pathname === '/api/stats') {
     const init = { method: req.method, headers: req.headers };
     if (req.method === 'POST' && url.pathname === '/api/reset') init.body = await readBody(req);
     const request = new Request(url, init);
