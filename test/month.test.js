@@ -31,8 +31,11 @@ test('a null month is derived from the completion day and stays off the public p
   assert.equal(resolveMonth(null, '2026-02-31'), null);
 
   const plan = schedule([dated, undated], NOW, 12);
+  assert.equal(plan.frames.length, 12);
   assert.equal(plan.frames.find(frame => frame.month === '2026-06').lights[0].place, 'Cork, Ireland');
-  assert.deepEqual(plan.frames.at(-1).lights.map(light => light.place), ['Mercer, Kentucky']);
+  const placed = plan.frames.find(frame => frame.lights.some(light => light.place === 'Mercer, Kentucky'));
+  assert.ok(placed);
+  assert.match(placed.label, /^(January|February|March|April|May|June|July|August|September|October|November|December) /);
 });
 
 test('english and finnish completion dates are stored as months', () => {

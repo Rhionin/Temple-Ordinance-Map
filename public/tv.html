@@ -9,9 +9,8 @@ html,body{margin:0;height:100%;height:100svh;height:100dvh;overflow:hidden;backg
 #rail{position:absolute;top:0;right:0;width:var(--rail,500px);height:1080px;z-index:1000;background:#07040c;border-left:1px solid rgba(255,196,120,.28);pointer-events:none}
 .leaflet-container{background:#07040c}
 .leaflet-div-icon,.candle-icon{background:transparent;border:none}
-#hud{position:fixed;top:24px;left:32px;z-index:999;max-width:980px;color:#ffd08a;text-shadow:0 0 14px #ff7a00}
-#hud h1{margin:0;font-size:42px;color:#ffa31a}#count{font-size:72px;font-weight:bold;color:#fff3d6}
-#count-label{font-size:28px}
+#hud{position:fixed;top:28px;left:36px;z-index:999;max-width:calc(var(--map-w, 1420px) - 80px);color:#ffd08a;text-shadow:0 0 14px #ff7a00}
+#hud h1{margin:0;font-size:40px;line-height:1.2;font-weight:normal;color:#ffa31a;white-space:nowrap}
 #ticker{position:fixed;bottom:0;left:0;right:var(--rail,500px);z-index:999;padding:14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
 .glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(#fff8e0 0,#ffcf4d 30%,#ff8a00 60%,transparent 72%);
 box-shadow:0 0 12px 5px #ff9a1a99,0 0 30px 12px #ff6a0055;animation:pop 1.6s ease-out,flick 2.4s infinite alternate}
@@ -45,6 +44,7 @@ box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
 #stat-ordinances li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:1px 0}
 #stat-ordinances b{font-size:32px;line-height:1.15;color:#fff3d6;font-weight:bold;min-width:2ch;text-align:right}
 #stat-ordinances span{font-size:24px;color:#ffd08a}
+#stat-ordinances li.total{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,196,120,.3)}
 .leaflet-control-attribution{background:#0008!important;color:#776!important}.leaflet-control-attribution a{color:#998!important}
 #reset{position:fixed;top:18px;right:18px;z-index:1003;width:36px;height:36px;padding:0;border:0;border-radius:50%;
 background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;cursor:pointer;transition:opacity .4s ease}
@@ -59,7 +59,7 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 <div id="vv-probe" aria-hidden="true"></div>
 <div id="stage">
 <div id="map"></div>
-<div id="hud"><h1>🌼 Our Ancestors 🌼</h1><div><span id="count">0</span> <span id="count-label">ancestors</span></div></div>
+<div id="hud"><h1>🌼 Light a candle for our ancestors 🌼</h1></div>
 <aside id="rail">
 <aside id="stats" aria-label="Temple work totals">
   <div class="stat"><b id="stat-ancestors">0</b><span>ancestors</span></div>
@@ -72,6 +72,7 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
     <li><b data-name="Endowment">0</b><span>Endowment</span></li>
     <li><b data-name="Sealing to Parents">0</b><span>Sealing to Parents</span></li>
     <li><b data-name="Sealing to Spouse">0</b><span>Sealing to Spouse</span></li>
+    <li class="total"><b id="stat-ordinance-total">0</b><span>Total ordinances</span></li>
   </ul>
 </aside>
 <aside id="card" role="status" aria-live="polite" aria-hidden="true">
@@ -213,7 +214,6 @@ const playMode = askedMode === 'timeline' || askedMode === 'spotlight' ? askedMo
 const cycleRaw = Number(params.get('cycle'));
 const cycleMs = Number.isFinite(cycleRaw) && cycleRaw > 0 ? Math.min(180, Math.max(30, cycleRaw)) * 1000 : 75000;
 const SPOT_LIGHTS = 4;
-const countLabel = document.getElementById('count-label');
 const cardPlace = document.getElementById('card-place');
 const cardOrd = document.getElementById('card-ord');
 const cardRegion = document.getElementById('card-region');
@@ -228,7 +228,6 @@ let since = 0;
 let ready = false;
 let polling = false;
 let mapEpoch = 0;
-let countN = 0;
 let bloomKey = null;
 let currentKey = null;
 let mode = 'idle';
@@ -288,20 +287,12 @@ function present(light, delay) {
   }
   const entry = { key, light, el: null, marker: null, timer: 0 };
   markers.set(key, entry);
-  setCount(markers.size);
   if (delay > 0) entry.timer = setTimeout(() => paint(entry), delay);
   else paint(entry);
   return entry;
 }
 function yearView() {
   return act !== 'timeline' || timelineWide;
-}
-function setCount(n) {
-  countN = n;
-  count.textContent = String(countN);
-  countLabel.textContent = yearView()
-    ? (countN === 1 ? 'ancestor this year' : 'ancestors this year')
-    : TimelineCamera.ancestorLabel(countN, false);
 }
 function showTimelineChrome(on) {
   timelineHud.hidden = !on;
@@ -315,7 +306,6 @@ function clearMarkers() {
   markers.clear();
   spots.clear();
   setBloom(null);
-  setCount(0);
   paintTotals();
 }
 function fadeMarkers() {
@@ -335,7 +325,7 @@ function revealLight(light) {
 function revealMissed() {
   for (const light of catalog.values()) {
     if (markers.has(Spotlight.lightKey(light))) continue;
-    if (Timeline.frameIndex(light.month, timelineNow, 12) < playhead) revealLight(light);
+    if (Timeline.frameIndex(light, timelineNow, 12) < playhead) revealLight(light);
   }
 }
 function pointsOf(lights) {
@@ -452,7 +442,7 @@ function applyTimelineEvent(event) {
     const scripted = new Set((event.lights || []).map(light => Spotlight.lightKey(light)));
     for (const light of catalog.values()) {
       if (scripted.has(Spotlight.lightKey(light))) continue;
-      if (Timeline.frameIndex(light.month, timelineNow, 12) === playhead) revealLight(light);
+      if (Timeline.frameIndex(light, timelineNow, 12) === playhead) revealLight(light);
     }
   } else if (event.type === 'reveal') {
     revealLight(event.light);
@@ -461,7 +451,6 @@ function applyTimelineEvent(event) {
     monthLabel.textContent = 'This year';
     timelineWide = true;
     revealMissed();
-    setCount(countN);
     paintTotals();
     const world = worldCamera(WORLD.zoom);
     easeCamera(world.center, world.zoom);
@@ -622,6 +611,8 @@ function paintBody(body) {
     const el = document.querySelector('#stat-ordinances [data-name="' + name + '"]');
     if (el) el.textContent = String(counts[name] || 0);
   }
+  const totalEl = document.getElementById('stat-ordinance-total');
+  if (totalEl) totalEl.textContent = String(VisibleTotals.ordinanceTotal(counts));
 }
 function paintTotals() {
   const sharersRow = document.getElementById('stat-sharers-row');
@@ -673,7 +664,7 @@ async function poll() {
     for (const light of rows) {
       rememberLight(light);
       if (act === 'timeline') {
-        const index = Timeline.frameIndex(light.month, timelineNow, 12);
+        const index = Timeline.frameIndex(light, timelineNow, 12);
         if (index <= playhead) revealLight(light);
         continue;
       }

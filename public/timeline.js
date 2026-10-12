@@ -1,5 +1,7 @@
 // Timeline playback for the TV page. The past 12 months play in order,
-// then lights with no parsed date, then a short hold before the cycle restarts.
+// then a short hold before the cycle restarts. A light with no month is
+// placed in one of those months by a stable hash so the page never shows
+// an unknown-date step.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Timeline = factory();
@@ -28,20 +30,51 @@
 
   function labelFor(month) {
     const text = normalizeMonth(month);
-    if (!text) return 'Date unknown';
+    if (!text) return '';
     const year = Number(text.slice(0, 4));
     const index = Number(text.slice(5, 7)) - 1;
     return NAMES[index] + ' ' + year;
   }
 
-  function frameIndex(month, now, count) {
-    const months = monthsEnding(now, count);
-    const text = normalizeMonth(month);
-    if (!text) return months.length;
-    const index = months.indexOf(text);
+  // Person id when a caller still has one, otherwise the public place and
+  // the light's own created time. The same light always lands in the same
+  // slot of the twelve-month window.
+  function slotKey(light) {
+    if (!light || typeof light !== 'object') return '';
+    const id = light.id || light.person_id;
+    if (id) return 'id:' + String(id);
+    return [
+      'place',
+      light.place || '',
+      light.created != null ? light.created : '',
+      light.lat != null ? light.lat : '',
+      light.lon != null ? light.lon : '',
+    ].join('|');
+  }
+
+  function slotFor(light, count) {
+    const total = Math.max(1, count || 12);
+    const text = slotKey(light);
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) % total;
+  }
+
+  function placedIndex(source, months) {
+    const light = source && typeof source === 'object' ? source : null;
+    const month = normalizeMonth(light ? light.month : source);
+    if (!month) return slotFor(light, months.length);
+    const index = months.indexOf(month);
     if (index >= 0) return index;
-    if (text < months[0]) return 0;
+    if (month < months[0]) return 0;
     return months.length - 1;
+  }
+
+  function frameIndex(source, now, count) {
+    return placedIndex(source, monthsEnding(now, count));
   }
 
   function byCreated(a, b) {
@@ -51,21 +84,11 @@
   function schedule(lights, now, count) {
     const months = monthsEnding(now, count);
     const buckets = new Map(months.map(month => [month, []]));
-    const undated = [];
     for (const light of lights || []) {
-      const month = normalizeMonth(light && light.month);
-      if (!month) {
-        undated.push(light);
-        continue;
-      }
-      if (month < months[0]) buckets.get(months[0]).push(light);
-      else if (buckets.has(month)) buckets.get(month).push(light);
-      else buckets.get(months[months.length - 1]).push(light);
+      buckets.get(months[placedIndex(light, months)]).push(light);
     }
     for (const list of buckets.values()) list.sort(byCreated);
-    undated.sort(byCreated);
     const frames = months.map(month => ({ month, label: labelFor(month), lights: buckets.get(month) }));
-    frames.push({ month: null, label: 'Date unknown', lights: undated });
     return { months, frames };
   }
 
@@ -97,5 +120,5 @@
     return { events, total: clock.cycle, frames: plan.frames, holdMs: clock.holdMs, fadeMs: clock.fadeMs };
   }
 
-  return { monthsEnding, labelFor, frameIndex, schedule, buildScript, timing };
+  return { monthsEnding, labelFor, frameIndex, slotFor, schedule, buildScript, timing };
 });
