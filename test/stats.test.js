@@ -195,7 +195,7 @@ test('the TV panel lists the six ordinances and does not ask for sound', () => {
   assert.match(tv, /id="stat-ordinances"/);
   assert.match(tv, /id="stat-ordinance-total"/);
   assert.match(tv, /Total ordinances/);
-  assert.match(tv, /\/api\/stats/);
+  assert.match(tv, /mapApi\('\/stats'\)/);
   for (const name of ORDINANCES) assert.match(tv, new RegExp(name));
   assert.doesNotMatch(tv, /stats\.hidden\s*=\s*true/);
   assert.doesNotMatch(tv, /new-upload\.mp3|enable sound|Click to enable sound|<audio/i);

@@ -270,17 +270,18 @@ test('d1 migration stores deduped lights and the public query omits ids', () => 
     db.exec(fs.readFileSync(path.join(dir, name), 'utf8'));
   }
   const columns = db.prepare('PRAGMA table_info(lights)').all().map(column => column.name);
-  assert.deepEqual(columns, ['person_id', 'place', 'lat', 'lon', 'ordinance', 'created', 'updated', 'month', 'country', 'completed']);
+  assert.deepEqual(columns, ['group_id', 'person_id', 'place', 'lat', 'lon', 'ordinance', 'created', 'updated', 'month', 'country', 'completed']);
   assert.ok(!columns.includes('name'));
-  const insert = db.prepare('INSERT INTO lights (person_id, place, lat, lon, ordinance, created) VALUES (?, ?, ?, ?, ?, ?)');
-  insert.run('ABCD-123', 'Cork, Ireland', 51.9, -8.47, 'Endowment', 10);
-  assert.throws(() => insert.run('ABCD-123', 'Other', 1, 2, 'Baptism', 11));
+  const insert = db.prepare('INSERT INTO lights (group_id, person_id, place, lat, lon, ordinance, created) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  insert.run(1, 'ABCD-123', 'Cork, Ireland', 51.9, -8.47, 'Endowment', 10);
+  assert.throws(() => insert.run(1, 'ABCD-123', 'Other', 1, 2, 'Baptism', 11));
+  insert.run(2, 'ABCD-123', 'Other', 1, 2, 'Baptism', 11);
   const jobColumns = db.prepare('PRAGMA table_info(jobs)').all().map(column => column.name);
-  assert.deepEqual(jobColumns, ['person_id', 'place', 'ordinance', 'created', 'cursor_idx', 'status', 'month', 'completed']);
+  assert.deepEqual(jobColumns, ['group_id', 'person_id', 'place', 'ordinance', 'created', 'cursor_idx', 'status', 'month', 'completed']);
   const cacheColumns = db.prepare('PRAGMA table_info(geocache)').all().map(column => column.name);
   assert.deepEqual(cacheColumns, ['query', 'lat', 'lon', 'cached_at', 'country']);
   const sharerColumns = db.prepare('PRAGMA table_info(sharers)').all().map(column => column.name);
-  assert.deepEqual(sharerColumns, ['id_hash', 'created']);
+  assert.deepEqual(sharerColumns, ['group_id', 'id_hash', 'created']);
   const pub = db.prepare(
     'SELECT place, lat, lon, ordinance, created, updated, month FROM lights WHERE created > ? OR updated > ? ORDER BY created'
   ).all(0, 0);

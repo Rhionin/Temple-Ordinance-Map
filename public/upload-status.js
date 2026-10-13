@@ -45,7 +45,7 @@
       duplicate,
       queued,
       arriving,
-      mapHref: '/tv',
+      mapHref: '/',
       mapLabel: 'See the map',
     };
   }

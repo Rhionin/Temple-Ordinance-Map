@@ -7,6 +7,7 @@ function world(jobCount, { cached = true } = {}) {
   const jobs = [];
   for (let i = 0; i < jobCount; i++) {
     jobs.push({
+      group_id: 1,
       person_id: 'P' + String(i).padStart(3, '0') + '-001',
       place: 'Town' + i,
       ordinance: 'Baptism',
@@ -72,7 +73,7 @@ function world(jobCount, { cached = true } = {}) {
         async run(args = []) {
           if (sql.includes('INSERT INTO lights')) {
             const id = args[0];
-            const stillPending = jobs.find(job => job.person_id === args[10] && job.status === 'pending');
+            const stillPending = jobs.find(job => job.group_id === args[11] && job.person_id === args[12] && job.status === 'pending');
             if (stillPending && !lights.some(light => light.person_id === id)) {
               lights.push({
                 person_id: id,
@@ -89,15 +90,15 @@ function world(jobCount, { cached = true } = {}) {
             }
           }
           if (sql.includes("status = 'done'")) {
-            const job = jobs.find(item => item.person_id === args[0] && item.status === 'pending');
+            const job = jobs.find(item => item.group_id === args[0] && item.person_id === args[1] && item.status === 'pending');
             if (job) job.status = 'done';
           }
           if (sql.includes("status = 'failed'")) {
-            const job = jobs.find(item => item.person_id === args[0] && item.status === 'pending');
+            const job = jobs.find(item => item.group_id === args[0] && item.person_id === args[1] && item.status === 'pending');
             if (job) job.status = 'failed';
           }
           if (sql.includes('SET cursor_idx')) {
-            const job = jobs.find(item => item.person_id === args[1] && item.status === 'pending');
+            const job = jobs.find(item => item.group_id === args[1] && item.person_id === args[2] && item.status === 'pending');
             if (job) job.cursor_idx = args[0];
           }
           if (sql.includes('INSERT INTO geocache')) {

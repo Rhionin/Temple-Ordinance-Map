@@ -192,14 +192,17 @@ test('D1 counts pending jobs and lights from the last 10 minutes', async () => {
   }
   const now = Date.now();
   sqlite.prepare(
-    'INSERT INTO jobs (person_id, place, ordinance, created, status) VALUES (?, ?, ?, ?, ?)'
-  ).run('AAAA-101', 'Cork', '[]', now, 'pending');
+    'INSERT INTO jobs (group_id, person_id, place, ordinance, created, status) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(1, 'AAAA-101', 'Cork', '[]', now, 'pending');
   sqlite.prepare(
-    'INSERT INTO jobs (person_id, place, ordinance, created, status) VALUES (?, ?, ?, ?, ?)'
-  ).run('AAAA-102', 'Cork', '[]', now - RECENT_MS - 1000, 'pending');
+    'INSERT INTO jobs (group_id, person_id, place, ordinance, created, status) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(1, 'AAAA-102', 'Cork', '[]', now - RECENT_MS - 1000, 'pending');
   sqlite.prepare(
-    'INSERT INTO lights (person_id, place, lat, lon, ordinance, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run('AAAA-201', 'Cork', 51.9, -8.4, '[]', now, now);
+    'INSERT INTO jobs (group_id, person_id, place, ordinance, created, status) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(2, 'BBBB-101', 'Lima', '[]', now, 'pending');
+  sqlite.prepare(
+    'INSERT INTO lights (group_id, person_id, place, lat, lon, ordinance, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(1, 'AAAA-201', 'Cork', 51.9, -8.4, '[]', now, now);
   const db = {
     prepare(sql) {
       const statement = {
@@ -224,9 +227,10 @@ test('D1 counts pending jobs and lights from the last 10 minutes', async () => {
       return statement;
     },
   };
-  const counted = d1Store(db);
-  assert.equal(await counted.pendingCount(), 2);
-  assert.equal(await counted.recentCount(now), 2);
+  const counted = d1Store(db, 1);
+  assert.equal(await counted.pendingCount(), 3);
+  assert.equal(await counted.groupPendingCount(), 2);
+  assert.equal(await counted.recentCount(now), 3);
 });
 
 test('the phone copy for a huge file names the Completed list', () => {

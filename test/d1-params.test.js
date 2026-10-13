@@ -100,7 +100,7 @@ test('three hundred places and three thousand rows upload without a 100-paramete
 
   const response = await handleApi(
     new Request('http://localhost/api/upload', { method: 'POST', body: text }),
-    { store: d1Store(db) }
+    { store: d1Store(db, 1) }
   );
   const body = await response.json();
   assert.equal(response.status, 200);

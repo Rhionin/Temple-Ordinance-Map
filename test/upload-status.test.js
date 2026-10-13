@@ -10,7 +10,7 @@ test('a successful upload names the counts and the map', () => {
   assert.equal(queued.added, 2);
   assert.equal(queued.duplicate, 4);
   assert.equal(queued.arriving, 5);
-  assert.equal(queued.mapHref, '/tv');
+  assert.equal(queued.mapHref, '/');
   assert.equal(queued.mapLabel, 'See the map');
   assert.equal(describeProgress(2, 5, false), 'Finding places — 2 of 5');
   assert.equal(describeProgress(5, 5, false), 'All 5 new lights are on the map');
@@ -42,7 +42,7 @@ test('the upload and TV pages expose the success card and the spotlight', () => 
   assert.match(upload, /Past-year ordinances found/);
   assert.match(upload, /New lights added/);
   assert.match(upload, /Already on the map/);
-  assert.match(upload, /id="see-map" href="\/tv"/);
+  assert.match(upload, /id="see-map" href="\/"/);
   assert.match(upload, /See the map/);
   assert.equal((upload.match(/Scroll all the way to the bottom/g) || []).length, 2);
   assert.match(upload, /class="os ios"><b>Scroll all the way to the bottom<\/b> of the list and tap <b>Download List<\/b>/);
