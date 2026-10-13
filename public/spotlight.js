@@ -164,5 +164,92 @@
     };
   }
 
-  return { lightKey, regionName, regionCount, captionFor, createRotation };
+  // One shuffled order, walked across cycles. A new light joins the
+  // remaining order. When the order runs out, the next shuffle does not
+  // open on the light that just played.
+  function createDeck(options) {
+    const rng = (options && options.rng) || Math.random;
+    const records = new Map();
+    let order = [];
+    let lastKey = null;
+    let primed = false;
+
+    function remember(light) {
+      const key = lightKey(light);
+      const prev = records.get(key);
+      const ordinances = cleanOrdinances([...(prev ? prev.ordinances : []), ...ordinancesOf(light)]);
+      if (prev) {
+        prev.ordinances = ordinances;
+        if (light.place) prev.place = String(light.place);
+        return { key, isNew: false };
+      }
+      records.set(key, {
+        key,
+        place: String(light.place || ''),
+        lat: Number(light.lat),
+        lon: Number(light.lon),
+        created: Number(light.created) || 0,
+        ordinances,
+      });
+      return { key, isNew: true };
+    }
+
+    function reshuffle() {
+      const next = shuffle([...records.keys()], rng);
+      if (next.length > 1 && next[0] === lastKey) {
+        const j = 1 + Math.floor(rng() * (next.length - 1));
+        const hold = next[0];
+        next[0] = next[j];
+        next[j] = hold;
+      }
+      order = next;
+    }
+
+    return {
+      seed(list) {
+        const added = [];
+        for (const light of list || []) {
+          const result = remember(light);
+          if (result.isNew) added.push(result.key);
+        }
+        if (!primed) {
+          order = shuffle([...records.keys()], rng);
+          primed = true;
+          return;
+        }
+        for (const key of added) {
+          if (order.indexOf(key) === -1) order.push(key);
+        }
+      },
+      arrive(light) {
+        const result = remember(light);
+        if (result.isNew && primed && order.length && order.indexOf(result.key) === -1) order.push(result.key);
+        return result;
+      },
+      has(light) {
+        return records.has(lightKey(light));
+      },
+      get(light) {
+        return records.get(lightKey(light)) || null;
+      },
+      all() {
+        return [...records.values()];
+      },
+      clear() {
+        records.clear();
+        order = [];
+        lastKey = null;
+        primed = false;
+      },
+      next() {
+        if (!records.size) return null;
+        if (!order.length) reshuffle();
+        const key = order.shift();
+        lastKey = key;
+        return records.get(key) || null;
+      },
+    };
+  }
+
+  return { lightKey, regionName, regionCount, captionFor, createRotation, createDeck };
 });

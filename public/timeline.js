@@ -77,6 +77,28 @@
     return placedIndex(source, monthsEnding(now, count));
   }
 
+  // How many months the time-lapse walks. A group window is the floor.
+  // An older dated light stretches the window back to that month, up to
+  // ten years, so the show starts where the data starts.
+  function dataWindowMonths(lights, now, configured) {
+    const cap = 120;
+    const floorCount = Math.min(cap, Math.max(1, Math.round(Number(configured)) || 12));
+    const span = monthsEnding(now, cap);
+    let count = floorCount;
+    for (const light of lights || []) {
+      const month = normalizeMonth(light && typeof light === 'object' ? light.month : light);
+      if (!month) continue;
+      if (month < span[0]) {
+        count = cap;
+        continue;
+      }
+      const index = span.indexOf(month);
+      if (index < 0) continue;
+      if (cap - index > count) count = cap - index;
+    }
+    return count;
+  }
+
   function byCreated(a, b) {
     return (Number(a.created) || 0) - (Number(b.created) || 0);
   }
@@ -120,5 +142,5 @@
     return { events, total: clock.cycle, frames: plan.frames, holdMs: clock.holdMs, fadeMs: clock.fadeMs };
   }
 
-  return { monthsEnding, labelFor, frameIndex, slotFor, schedule, buildScript, timing };
+  return { monthsEnding, labelFor, frameIndex, slotFor, schedule, buildScript, timing, dataWindowMonths };
 });
