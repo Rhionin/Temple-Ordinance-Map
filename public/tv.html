@@ -95,6 +95,7 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 <script src="/version.js"></script>
 <script src="/spotlight.js"></script>
 <script src="/timeline.js"></script>
+<script src="/show.js"></script>
 <script src="/timeline-camera.js"></script>
 <script src="/stage-fit.js"></script>
 <script src="/stage-frame.js"></script>
@@ -210,10 +211,12 @@ map.attributionControl.addAttribution('Natural Earth');
 
 const params = new URLSearchParams(location.search);
 const askedMode = params.get('mode');
-const playMode = askedMode === 'timeline' || askedMode === 'spotlight' ? askedMode : 'alternate';
+const playMode = askedMode === 'timeline' || askedMode === 'spotlight' ? askedMode : 'show';
+// ?cycle= is the twelve-month time-lapse pace. ?show= is the whole cycle, in seconds.
 const cycleRaw = Number(params.get('cycle'));
-const cycleMs = Number.isFinite(cycleRaw) && cycleRaw > 0 ? Math.min(180, Math.max(30, cycleRaw)) * 1000 : 75000;
-const SPOT_LIGHTS = 4;
+const baseMs = Number.isFinite(cycleRaw) && cycleRaw > 0 ? Math.min(180, Math.max(30, cycleRaw)) * 1000 : 75000;
+const showRaw = Number(params.get('show'));
+const showMs = Number.isFinite(showRaw) && showRaw >= 30 ? showRaw * 1000 : Show.SHOW_MS;
 const cardPlace = document.getElementById('card-place');
 const cardOrd = document.getElementById('card-ord');
 const cardRegion = document.getElementById('card-region');
@@ -221,6 +224,7 @@ const monthLabel = document.getElementById('month-label');
 const progressBar = document.getElementById('progress-bar');
 const timelineHud = document.getElementById('timeline');
 let rotation = Spotlight.createRotation({ every: 4 });
+let deck = Spotlight.createDeck();
 const markers = new Map();
 const spots = new Set();
 const catalog = new Map();
@@ -238,8 +242,11 @@ let timelineNow = Date.now();
 let timelineScript = null;
 let scriptStart = 0;
 let eventCursor = 0;
-let spotLightsShown = 0;
 let timelineGen = 0;
+let windowMonths = 12;
+let timelineMonths = 12;
+let showPlan = null;
+let showStarted = 0;
 let pinnedBox = null;
 let timelineWide = false;
 let cameraToken = 0;
@@ -325,7 +332,7 @@ function revealLight(light) {
 function revealMissed() {
   for (const light of catalog.values()) {
     if (markers.has(Spotlight.lightKey(light))) continue;
-    if (Timeline.frameIndex(light, timelineNow, 12) < playhead) revealLight(light);
+    if (Timeline.frameIndex(light, timelineNow, timelineMonths) < playhead) revealLight(light);
   }
 }
 function pointsOf(lights) {
@@ -442,7 +449,7 @@ function applyTimelineEvent(event) {
     const scripted = new Set((event.lights || []).map(light => Spotlight.lightKey(light)));
     for (const light of catalog.values()) {
       if (scripted.has(Spotlight.lightKey(light))) continue;
-      if (Timeline.frameIndex(light, timelineNow, 12) === playhead) revealLight(light);
+      if (Timeline.frameIndex(light, timelineNow, timelineMonths) === playhead) revealLight(light);
     }
   } else if (event.type === 'reveal') {
     revealLight(event.light);
@@ -488,9 +495,11 @@ function startTimeline() {
   mode = 'idle';
   playhead = -1;
   timelineNow = Date.now();
-  monthLabel.textContent = Timeline.labelFor(Timeline.monthsEnding(timelineNow, 12)[0]);
+  timelineMonths = Timeline.dataWindowMonths([...catalog.values()], timelineNow, windowMonths);
+  showPlan = Show.planCycle(Show.naturalTimelineMs(timelineMonths, baseMs), showMs);
+  monthLabel.textContent = Timeline.labelFor(Timeline.monthsEnding(timelineNow, timelineMonths)[0]);
   progressBar.style.width = '0%';
-  timelineScript = Timeline.buildScript([...catalog.values()], timelineNow, cycleMs);
+  timelineScript = Timeline.buildScript([...catalog.values()], timelineNow, showPlan.timelineMs, timelineMonths);
   scriptStart = Date.now();
   eventCursor = 0;
   frameFirstLights();
@@ -501,8 +510,36 @@ function finishTimeline() {
   if (versions.boundary()) return;
   clearTimeout(timer);
   clearMarkers();
-  if (playMode === 'alternate') startSpotlight();
-  else startTimeline();
+  if (playMode === 'timeline') {
+    startTimeline();
+    return;
+  }
+  if (playMode === 'spotlight') {
+    startSpotlight();
+    return;
+  }
+  const left = showStarted + (showPlan ? showPlan.showMs : showMs) - Date.now();
+  if (left < 500) startShow();
+  else startShowSpotlights();
+}
+function startShow() {
+  showStarted = Date.now();
+  deck.seed([...catalog.values()]);
+  startTimeline();
+}
+function startShowSpotlights() {
+  act = 'spotlight';
+  map.getContainer().style.visibility = 'visible';
+  clearTimeout(timer);
+  showTimelineChrome(false);
+  hideCard();
+  clearMarkers();
+  const lights = [...catalog.values()];
+  deck.seed(lights);
+  lights.forEach((light, index) => present(light, Math.min(index * 90, 1500)));
+  mode = 'idle';
+  currentKey = null;
+  timer = setTimeout(runShowSpot, lights.length ? 900 : 400);
 }
 function startSpotlight() {
   act = 'spotlight';
@@ -515,7 +552,6 @@ function startSpotlight() {
   const lights = [...catalog.values()];
   rotation.seed(lights);
   lights.forEach((light, index) => present(light, Math.min(index * 90, 1500)));
-  spotLightsShown = 0;
   mode = 'idle';
   currentKey = null;
   timer = setTimeout(runStep, lights.length ? 900 : 400);
@@ -583,19 +619,43 @@ function runStep() {
     hideCard();
   }
   const wait = step.type === 'idle' ? 2000 : DWELL_MS;
-  if (playMode === 'alternate' && (step.type === 'light' || step.type === 'idle')) {
-    spotLightsShown += 1;
-    if (spotLightsShown >= SPOT_LIGHTS) {
-      timer = setTimeout(startTimeline, wait);
-      return;
-    }
-  }
   timer = setTimeout(runStep, wait);
+}
+function runShowSpot() {
+  if (versions.boundary()) return;
+  if (act !== 'spotlight' || playMode !== 'show') return;
+  const end = showStarted + (showPlan ? showPlan.showMs : showMs);
+  const left = end - Date.now();
+  if (left < 800) {
+    timer = setTimeout(startShow, Math.max(0, left));
+    return;
+  }
+  const light = deck.next();
+  if (!light) {
+    mode = 'idle';
+    currentKey = null;
+    setBloom(null);
+    hideCard();
+    timer = setTimeout(runShowSpot, Math.min(2000, Math.max(200, end - Date.now())));
+    return;
+  }
+  const step = { type: 'light', light };
+  mode = 'light';
+  currentKey = step.light.key;
+  present(step.light, 0);
+  setBloom(currentKey);
+  showCard(step.light, deck.all());
+  map.flyToBounds(lightBounds(focusOf(step.light)), Object.assign({
+    paddingTopLeft: padPoint('topLeft'),
+    paddingBottomRight: padPoint('bottomRight'),
+    maxZoom: SPOT_ZOOM,
+  }, flyOpts()));
+  timer = setTimeout(runShowSpot, Math.min(DWELL_MS, Math.max(0, end - Date.now())));
 }
 function wake() {
   if (act !== 'spotlight' || mode !== 'idle') return;
   clearTimeout(timer);
-  timer = setTimeout(runStep, 700);
+  timer = setTimeout(playMode === 'show' ? runShowSpot : runStep, 700);
 }
 function rememberLight(light) {
   catalog.set(Spotlight.lightKey(light), light);
@@ -649,6 +709,8 @@ async function loadGroupHeading() {
     const response = await fetch(mapApi('/group'), { cache: 'no-store' });
     if (!response.ok) return;
     const group = await response.json();
+    const months = Number(group.months);
+    if (Number.isInteger(months) && months >= 1 && months <= 120) windowMonths = months;
     const heading = document.querySelector('#hud h1');
     if (heading && group.title) heading.textContent = group.title;
   } catch (error) { /* the default heading stays */ }
@@ -674,16 +736,31 @@ async function poll() {
     if (!ready) {
       rows.forEach(rememberLight);
       ready = true;
+      await groupReady;
+      if (epoch !== mapEpoch) return;
       if (playMode === 'spotlight') startSpotlight();
-      else startTimeline();
+      else if (playMode === 'timeline') startTimeline();
+      else startShow();
       return;
     }
     let arrived = 0;
     for (const light of rows) {
       rememberLight(light);
       if (act === 'timeline') {
-        const index = Timeline.frameIndex(light, timelineNow, 12);
+        if (playMode === 'show') deck.arrive(light);
+        const index = Timeline.frameIndex(light, timelineNow, timelineMonths);
         if (index <= playhead) revealLight(light);
+        continue;
+      }
+      if (playMode === 'show') {
+        const result = deck.arrive(light);
+        present(light, 0);
+        if (!result.isNew) {
+          if (Spotlight.lightKey(light) === currentKey) showCard(deck.get(light), deck.all());
+        } else {
+          ticker.textContent = '🕯️ ' + light.place;
+          arrived += 1;
+        }
         continue;
       }
       if (rotation.has(light)) {
@@ -721,8 +798,10 @@ function emptyMap() {
   resetNote.hidden = true;
   resetNote.textContent = '';
   ticker.textContent = '\u00a0';
+  deck.clear();
   if (playMode === 'spotlight') startSpotlight();
-  else startTimeline();
+  else if (playMode === 'timeline') startTimeline();
+  else startShow();
 }
 resetBtn.addEventListener('click', async () => {
   const typed = window.prompt('PIN');
@@ -751,7 +830,7 @@ resetBtn.addEventListener('click', async () => {
     resetNote.textContent = 'Could not reset.';
   }
 });
-loadGroupHeading();
+const groupReady = loadGroupHeading();
 poll();
 setInterval(poll, 2000);
 </script></body></html>

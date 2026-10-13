@@ -356,7 +356,7 @@ const server = http.createServer(async (req, res) => {
     req.on('close', () => sseClients.delete(res));
     return;
   }
-  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js', '/timeline.js': 'timeline.js', '/version.js': 'version.js' }[url.pathname];
+  const script = { '/spotlight.js': 'spotlight.js', '/upload-status.js': 'upload-status.js', '/timeline.js': 'timeline.js', '/show.js': 'show.js', '/version.js': 'version.js' }[url.pathname];
   if (script) {
     res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(fs.readFileSync(path.join(__dirname, 'public', script)));
