@@ -11,7 +11,7 @@ html,body{margin:0;height:100%;height:100svh;height:100dvh;overflow:hidden;backg
 .leaflet-div-icon,.candle-icon{background:transparent;border:none}
 #hud{position:fixed;top:28px;left:36px;z-index:999;max-width:calc(var(--map-w, 1420px) - 80px);color:#ffd08a;text-shadow:0 0 14px #ff7a00}
 #hud h1{margin:0;font-size:40px;line-height:1.2;font-weight:normal;color:#ffa31a;white-space:nowrap}
-#ticker{position:fixed;bottom:0;left:0;right:var(--rail,500px);z-index:999;padding:14px var(--ticker-right,32px) 14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
+#ticker{position:fixed;bottom:0;left:0;right:var(--rail,500px);z-index:999;padding:14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
 .glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(#fff8e0 0,#ffcf4d 30%,#ff8a00 60%,transparent 72%);
 box-shadow:0 0 12px 5px #ff9a1a99,0 0 30px 12px #ff6a0055;animation:pop 1.6s ease-out,flick 2.4s infinite alternate}
 .glow.bloom{filter:brightness(1.45);box-shadow:0 0 22px 14px #fff3c8ee,0 0 60px 28px #ffb000cc}
@@ -45,14 +45,13 @@ box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
 #stat-ordinances b{font-size:32px;line-height:1.15;color:#fff3d6;font-weight:bold;min-width:2ch;text-align:right}
 #stat-ordinances span{font-size:24px;color:#ffd08a}
 #stat-ordinances li.total{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,196,120,.3)}
-.leaflet-bottom.leaflet-right{right:var(--attr-right,0px)}
 .leaflet-control-attribution{background:#0008!important;color:#776!important}.leaflet-control-attribution a{color:#998!important}
-#qr-badge{position:absolute;right:calc(var(--rail,500px) + var(--qr-right,16px));bottom:var(--qr-b,14px);width:var(--qr-w,280px);height:var(--qr-h,292px);z-index:1004;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;padding:12px 14px 10px;background:#fff;color:#140e08;border-radius:16px;pointer-events:none;text-align:center;overflow:hidden;text-size-adjust:100%;-webkit-text-size-adjust:100%}
+#qr-badge{position:absolute;left:28px;right:24px;z-index:1;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:10px 12px 8px;background:#fff4dc;color:#4a2410;font-family:Georgia,serif;border:2px solid #ffc478;border-radius:20px;box-shadow:0 0 22px rgba(255,154,26,.55),0 10px 28px rgba(0,0,0,.28);pointer-events:none;text-align:center;overflow:hidden;text-size-adjust:100%;-webkit-text-size-adjust:100%}
 #qr-badge[hidden]{display:none !important}
-#qr-code{width:var(--qr-code,162px);height:var(--qr-code,162px);flex:0 0 auto}
+#qr-code{width:280px;height:280px;flex:0 0 auto}
 #qr-code svg{display:block;width:100%;height:100%}
-#qr-caption{margin:6px 0 0;font-size:22px;line-height:1.15;color:#140e08}
-#qr-url{margin:2px 0 0;max-width:100%;font-size:15px;line-height:1.25;color:#2c241c;overflow-wrap:anywhere}
+#qr-caption{margin:4px 0 0;font-size:20px;line-height:1.1;color:#4a2410}
+#qr-url{margin:1px 0 0;max-width:100%;font-size:14px;line-height:1.2;color:#6b3a18;overflow-wrap:anywhere}
 #reset{position:fixed;top:18px;right:18px;z-index:1003;width:36px;height:36px;padding:0;border:0;border-radius:50%;
 background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;cursor:pointer;transition:opacity .4s ease}
 #reset.show,#reset:focus-visible{opacity:.4}
@@ -85,6 +84,11 @@ background:rgba(7,4,12,.72);border-radius:4px;pointer-events:none;white-space:pr
     <li class="total"><b id="stat-ordinance-total">0</b><span>Total ordinances</span></li>
   </ul>
 </aside>
+<aside id="qr-badge" hidden>
+  <div id="qr-code"></div>
+  <p id="qr-caption">Add your ancestors</p>
+  <p id="qr-url"></p>
+</aside>
 <aside id="card" role="status" aria-live="polite" aria-hidden="true">
   <p class="kicker">Featured light</p>
   <h2 id="card-place"></h2>
@@ -97,11 +101,6 @@ background:rgba(7,4,12,.72);border-radius:4px;pointer-events:none;white-space:pr
   <p id="month-label">This year</p>
   <div id="progress" aria-hidden="true"><div id="progress-bar"></div></div>
 </div>
-<aside id="qr-badge" hidden>
-  <div id="qr-code"></div>
-  <p id="qr-caption">Add your ancestors</p>
-  <p id="qr-url"></p>
-</aside>
 <button id="reset" type="button" aria-label="Reset lights" title="Reset">↺</button>
 <p id="reset-note" hidden></p>
 </div>
@@ -140,9 +139,41 @@ function fitStage() {
   }
 }
 fitStage();
+function placeQr() {
+  const badge = document.getElementById('qr-badge');
+  const stats = document.getElementById('stats');
+  const card = document.getElementById('card');
+  const code = document.getElementById('qr-code');
+  if (!badge || badge.hidden || !stats || !card || !code || typeof QrBadge === 'undefined') return;
+  const caption = document.getElementById('qr-caption');
+  const url = document.getElementById('qr-url');
+  const badgeStyle = getComputedStyle(badge);
+  const padX = parseFloat(badgeStyle.paddingLeft) + parseFloat(badgeStyle.paddingRight);
+  const padY = parseFloat(badgeStyle.paddingTop) + parseFloat(badgeStyle.paddingBottom);
+  const borderY = parseFloat(badgeStyle.borderTopWidth) + parseFloat(badgeStyle.borderBottomWidth);
+  let textH = 0;
+  if (caption) {
+    const captionStyle = getComputedStyle(caption);
+    textH += caption.offsetHeight + parseFloat(captionStyle.marginTop) + parseFloat(captionStyle.marginBottom);
+  }
+  if (url) {
+    const urlStyle = getComputedStyle(url);
+    textH += url.offsetHeight + parseFloat(urlStyle.marginTop) + parseFloat(urlStyle.marginBottom);
+  }
+  const fit = QrBadge.fitCode({
+    statsBottom: stats.offsetTop + stats.offsetHeight,
+    cardTop: card.offsetTop,
+    innerWidth: badge.clientWidth - padX,
+    chrome: padY + borderY + textH,
+  });
+  badge.style.top = fit.top + 'px';
+  if (!(fit.code > 0)) return;
+  code.style.width = fit.code + 'px';
+  code.style.height = fit.code + 'px';
+}
 function applyFrame() {
   const root = document.documentElement;
-  const style = StageFrame.frameStyle(qrOn);
+  const style = StageFrame.frameStyle();
   for (const name of Object.keys(style)) root.style.setProperty(name, style[name]);
   const badge = document.getElementById('qr-badge');
   if (!badge) return;
@@ -156,6 +187,7 @@ function applyFrame() {
     document.getElementById('qr-caption').textContent = target.caption;
     document.getElementById('qr-url').textContent = target.label;
     badge.hidden = false;
+    placeQr();
   } catch (error) {
     badge.hidden = true;
   }
@@ -378,7 +410,7 @@ function rememberPinned(lights) {
   return result.grew;
 }
 function padPoint(which) {
-  const point = StageFrame.padding({ qr: qrOn })[which];
+  const point = StageFrame.padding()[which];
   return L.point(point.x, point.y);
 }
 function frameOptions(cap) {
@@ -718,23 +750,20 @@ function paintBody(body) {
 function paintTotals() {
   const sharersRow = document.getElementById('stat-sharers-row');
   if (sharersRow) sharersRow.hidden = !yearView();
-  if (act !== 'timeline') {
-    paintBody(serverStats);
-    return;
+  if (act !== 'timeline') paintBody(serverStats);
+  else {
+    const shown = revealedLights();
+    const partial = VisibleTotals.tally(shown, countryAt);
+    const complete = catalog.size > 0 && shown.length >= catalog.size && serverStats;
+    if (complete) paintBody(serverStats);
+    else paintBody({
+      ancestors: partial.ancestors,
+      countries: partial.countries,
+      sharers: VisibleTotals.sharersShown(shown.length, catalog.size, serverStats && serverStats.sharers),
+      ordinances: partial.ordinances,
+    });
   }
-  const shown = revealedLights();
-  const partial = VisibleTotals.tally(shown, countryAt);
-  const complete = catalog.size > 0 && shown.length >= catalog.size && serverStats;
-  if (complete) {
-    paintBody(serverStats);
-    return;
-  }
-  paintBody({
-    ancestors: partial.ancestors,
-    countries: partial.countries,
-    sharers: VisibleTotals.sharersShown(shown.length, catalog.size, serverStats && serverStats.sharers),
-    ordinances: partial.ordinances,
-  });
+  placeQr();
 }
 function mapApi(path) {
   const match = location.pathname.match(/^\/g\/([^/]+)\/map\/?$/);
