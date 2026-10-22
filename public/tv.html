@@ -58,6 +58,9 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 #reset.show,#reset:focus-visible{opacity:.4}
 #reset.show:hover,#reset:focus-visible{opacity:.9}
 #reset-note{position:fixed;top:56px;right:18px;z-index:1003;margin:0;max-width:220px;text-align:right;font-size:14px;color:#e7b56a}
+#perf{position:absolute;top:6px;right:72px;z-index:1004;max-width:320px;margin:0;padding:2px 6px;
+font:10px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;color:#c8b496;
+background:rgba(7,4,12,.72);border-radius:4px;pointer-events:none;white-space:pre;overflow:hidden}
 @media (prefers-reduced-motion:reduce){
   .glow,.glow.bloom{animation:none}
   #card{transition:none}
@@ -113,6 +116,7 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 <script src="/vendor/qrcode.js"></script>
 <script src="/qr-badge.js"></script>
 <script src="/stage-frame.js"></script>
+<script src="/perf.js"></script>
 <script>
 const qrOn = typeof QrBadge !== 'undefined' && QrBadge.enabled(location.search);
 function fitStage() {
@@ -870,4 +874,11 @@ resetBtn.addEventListener('click', async () => {
 const groupReady = loadGroupHeading();
 poll();
 setInterval(poll, 2000);
+// ?fps=1 opts into the corner meter. Any other URL leaves the map untouched.
+if (params.get('fps') === '1' && typeof PerfOverlay !== 'undefined') {
+  PerfOverlay.install({
+    phase() { return act; },
+    lights() { return PerfOverlay.countRendered(markers.values()); },
+  });
+}
 </script></body></html>
