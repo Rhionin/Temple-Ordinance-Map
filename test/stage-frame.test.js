@@ -9,14 +9,14 @@ test('the open map is the stage minus the rail and the overlay bands', () => {
   assert.equal(size.width, 1920 - insets.rail);
   assert.equal(size.height, 1080);
   assert.ok(size.width > 1200);
-  const clear = clearRect(size.width, size.height);
+  const clear = clearRect(size.width, size.height, { qr: false });
   assert.equal(clear.left, insets.left);
   assert.equal(clear.top, insets.top);
   assert.equal(clear.right, size.width - insets.right);
   assert.equal(clear.bottom, size.height - insets.bottom);
   assert.ok(clear.right - clear.left > 1000);
   assert.ok(clear.bottom - clear.top > 600);
-  const pad = padding();
+  const pad = padding({ qr: false });
   assert.deepEqual(pad.topLeft, { x: insets.left, y: insets.top });
   assert.deepEqual(pad.bottomRight, { x: insets.right, y: insets.bottom });
   const box = around(60.17, 24.94);
