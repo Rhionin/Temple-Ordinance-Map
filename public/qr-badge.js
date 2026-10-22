@@ -8,6 +8,11 @@
   const CAPTION = 'Add your ancestors';
   const ECC = 'Q';
   const QUIET = 4;
+  // Parchment paper and dark plum ink. Dark modules on a light field, never inverted.
+  const PAPER = '#fff4dc';
+  const INK = '#1c0a12';
+  // Gap the badge keeps under the totals and above the place card.
+  const GAP = 12;
 
   function enabled(search) {
     const raw = String(search || '');
@@ -65,8 +70,38 @@
       alt: String(text),
       title: CAPTION,
     });
-    return drawn.replace('<svg ', '<svg shape-rendering="crispEdges" ');
+    return drawn
+      .replace('<svg ', '<svg shape-rendering="crispEdges" ')
+      .replace('fill="white"', 'fill="' + PAPER + '"')
+      .replace('fill="black"', 'fill="' + INK + '"');
   }
 
-  return { CAPTION: CAPTION, ECC: ECC, QUIET: QUIET, enabled: enabled, targetFor: targetFor, matrix: matrix, svg: svg };
+  // Largest square that fits the rail under the totals and above the card.
+  // The rail's inner width is the cap; a tall card shrinks the code so the
+  // two never meet. Modules stay square — rounding them eats the gaps scanners use.
+  function fitCode(box) {
+    const source = box || {};
+    const statsBottom = Number(source.statsBottom) || 0;
+    const cardTop = Number(source.cardTop) || 0;
+    const innerWidth = Number(source.innerWidth) || 0;
+    const chrome = Number(source.chrome) || 0;
+    const top = statsBottom + GAP;
+    const room = cardTop - GAP - top - chrome;
+    const code = Math.floor(Math.min(innerWidth, room));
+    return { top: top, code: code > 0 ? code : 0, gap: GAP };
+  }
+
+  return {
+    CAPTION: CAPTION,
+    ECC: ECC,
+    QUIET: QUIET,
+    PAPER: PAPER,
+    INK: INK,
+    GAP: GAP,
+    enabled: enabled,
+    targetFor: targetFor,
+    matrix: matrix,
+    svg: svg,
+    fitCode: fitCode,
+  };
 });
