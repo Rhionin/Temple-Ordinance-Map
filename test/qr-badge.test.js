@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
-const { CAPTION, QUIET, PAPER, INK, enabled, targetFor, matrix, svg, fitCode } = require('../public/qr-badge');
+const { CAPTION, QUIET, PAPER, INK, CODE, enabled, targetFor, matrix, svg, slot, cardLimit } = require('../public/qr-badge');
 const { insets, mapSize, padding, clearRect, frameStyle } = require('../public/stage-frame');
 
 function channel(hex, index) {
@@ -139,7 +139,7 @@ test('the QR is dark plum on parchment with a quiet zone and finder patterns', (
   assert.doesNotMatch(tricky, /b=<2>/);
 });
 
-test('the badge fits the rail under the totals and the camera keeps its original insets', () => {
+test('the badge keeps one size under the totals and the camera keeps its original insets', () => {
   const size = mapSize();
   const clear = clearRect(size.width, size.height);
   assert.equal(clear.left, insets.left);
@@ -154,24 +154,19 @@ test('the badge fits the rail under the totals and the camera keeps its original
   assert.equal(frameStyle(true)['--attr-right'], undefined);
   assert.equal(frameStyle(true)['--ticker-right'], undefined);
 
-  const chrome = 70;
-  const innerWidth = 420;
-  const open = fitCode({ statsBottom: 525, cardTop: 991, innerWidth: innerWidth, chrome: chrome });
+  const open = slot(525);
+  const featured = slot(587);
+  assert.equal(open.code, CODE);
+  assert.equal(featured.code, open.code);
+  assert.ok(CODE >= 160);
   assert.equal(open.top, 525 + open.gap);
-  assert.ok(open.code >= 160);
-  assert.ok(open.code <= innerWidth);
-  assert.ok(open.top + chrome + open.code + open.gap <= 991);
-
-  const featured = fitCode({ statsBottom: 587, cardTop: 892, innerWidth: innerWidth, chrome: chrome });
-  assert.ok(featured.top > 587);
-  assert.ok(featured.code >= 160);
-  assert.ok(featured.code <= innerWidth);
-  assert.ok(featured.top + chrome + featured.code + featured.gap <= 892);
-
-  const wrapped = fitCode({ statsBottom: 587, cardTop: 817, innerWidth: innerWidth, chrome: chrome });
-  assert.ok(wrapped.code > 0);
-  assert.ok(wrapped.code < featured.code);
-  assert.ok(wrapped.top + chrome + wrapped.code + wrapped.gap <= 817);
+  assert.equal(featured.top, 587 + featured.gap);
+  const chrome = 80;
+  const cardBottom = 1048;
+  const room = cardLimit(587, cardBottom, chrome);
+  assert.ok(room >= 140);
+  assert.equal(cardLimit(525, cardBottom, chrome) >= room, true);
+  assert.equal(featured.top + chrome + featured.code + featured.gap + room, cardBottom);
 });
 
 test('the TV page draws the badge inside the stage and ?qr=0 removes it', () => {
@@ -191,7 +186,11 @@ test('the TV page draws the badge inside the stage and ?qr=0 removes it', () => 
   assert.match(tv, /StageFrame\.padding\(\)/);
   assert.match(tv, /if \(!qrOn\)/);
   assert.match(tv, /function placeQr\(/);
-  assert.match(tv, /QrBadge\.fitCode\(/);
+  assert.match(tv, /QrBadge\.slot\(/);
+  assert.match(tv, new RegExp('#qr-code\\{width:' + CODE + 'px;height:' + CODE + 'px'));
+  assert.match(tv, /-webkit-line-clamp:2/);
+  assert.match(tv, /card\.style\.maxHeight/);
+  assert.doesNotMatch(tv, /fitCode|cardTop/);
   const paint = tv.slice(tv.indexOf('function paintTotals'), tv.indexOf('function mapApi'));
   assert.match(paint, /placeQr\(\)/);
   assert.match(tv, /#qr-badge\[hidden\]\{display:none !important\}/);

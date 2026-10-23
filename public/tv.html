@@ -24,15 +24,15 @@ background:linear-gradient(transparent,#07040cf2)}
 #month-label{margin:0;font-size:64px;font-weight:normal;color:#fff6e4;text-shadow:0 0 18px #ff7a00,0 2px 8px #000}
 #progress{margin:14px auto 0;height:4px;width:min(640px,72%);background:rgba(255,255,255,.16);border-radius:4px;overflow:hidden}
 #progress-bar{height:100%;width:0;background:linear-gradient(90deg,#ffb347,#fff1c9);box-shadow:0 0 12px #ff9a1a}
-#card{position:absolute;left:28px;right:24px;bottom:32px;z-index:2;width:auto;padding:22px 26px 18px;color:#fff6e4;
+#card{position:absolute;left:28px;right:24px;bottom:32px;z-index:2;width:auto;padding:14px 20px 12px;color:#fff6e4;
 background:linear-gradient(165deg,rgba(62,36,18,.9),rgba(18,10,24,.84));border:1px solid rgba(255,196,120,.45);border-radius:22px;
 box-shadow:0 20px 50px rgba(0,0,0,.4),0 0 40px rgba(255,140,40,.16);backdrop-filter:blur(10px);
-opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .8s ease,transform .8s ease}
+opacity:0;transform:translateY(12px);pointer-events:none;overflow:hidden;transition:opacity .8s ease,transform .8s ease}
 #card.show{opacity:1;transform:none}
 #card .kicker{margin:0;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#e7b56a}
-#card h2{margin:8px 0;font-size:30px;font-weight:normal;line-height:1.25;color:#fff1d4}
-#card .ord{margin:0;font-size:20px;line-height:1.4;color:#ffd08a;text-shadow:0 0 12px #ff7a0066}
-#card .region{margin:12px 0 0;font-size:15px;color:#d9c4ae}
+#card h2{margin:4px 0;font-size:26px;font-weight:normal;line-height:1.2;color:#fff1d4;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+#card .ord{margin:0;font-size:18px;line-height:1.3;color:#ffd08a;text-shadow:0 0 12px #ff7a0066;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+#card .region{margin:8px 0 0;font-size:14px;color:#d9c4ae;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #stats{position:absolute;top:72px;left:28px;right:24px;z-index:1;width:auto;padding:16px 22px 12px;color:#fff6e4;
 background:linear-gradient(160deg,rgba(32,18,48,.78),rgba(7,4,12,.62));border:1px solid rgba(255,196,120,.35);border-radius:20px;
 box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
@@ -48,10 +48,10 @@ box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
 .leaflet-control-attribution{background:#0008!important;color:#776!important}.leaflet-control-attribution a{color:#998!important}
 #qr-badge{position:absolute;left:28px;right:24px;z-index:1;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:10px 12px 8px;background:#fff4dc;color:#4a2410;font-family:Georgia,serif;border:2px solid #ffc478;border-radius:20px;box-shadow:0 0 22px rgba(255,154,26,.55),0 10px 28px rgba(0,0,0,.28);pointer-events:none;text-align:center;overflow:hidden;text-size-adjust:100%;-webkit-text-size-adjust:100%}
 #qr-badge[hidden]{display:none !important}
-#qr-code{width:280px;height:280px;flex:0 0 auto}
+#qr-code{width:180px;height:180px;flex:0 0 auto}
 #qr-code svg{display:block;width:100%;height:100%}
 #qr-caption{margin:4px 0 0;font-size:20px;line-height:1.1;color:#4a2410}
-#qr-url{margin:1px 0 0;max-width:100%;font-size:14px;line-height:1.2;color:#6b3a18;overflow-wrap:anywhere}
+#qr-url{margin:1px 0 0;max-width:100%;max-height:2.4em;overflow:hidden;font-size:14px;line-height:1.2;color:#6b3a18;overflow-wrap:anywhere}
 #reset{position:fixed;top:18px;right:18px;z-index:1003;width:36px;height:36px;padding:0;border:0;border-radius:50%;
 background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;cursor:pointer;transition:opacity .4s ease}
 #reset.show,#reset:focus-visible{opacity:.4}
@@ -144,32 +144,19 @@ function placeQr() {
   const stats = document.getElementById('stats');
   const card = document.getElementById('card');
   const code = document.getElementById('qr-code');
-  if (!badge || badge.hidden || !stats || !card || !code || typeof QrBadge === 'undefined') return;
-  const caption = document.getElementById('qr-caption');
-  const url = document.getElementById('qr-url');
-  const badgeStyle = getComputedStyle(badge);
-  const padX = parseFloat(badgeStyle.paddingLeft) + parseFloat(badgeStyle.paddingRight);
-  const padY = parseFloat(badgeStyle.paddingTop) + parseFloat(badgeStyle.paddingBottom);
-  const borderY = parseFloat(badgeStyle.borderTopWidth) + parseFloat(badgeStyle.borderBottomWidth);
-  let textH = 0;
-  if (caption) {
-    const captionStyle = getComputedStyle(caption);
-    textH += caption.offsetHeight + parseFloat(captionStyle.marginTop) + parseFloat(captionStyle.marginBottom);
+  if (!badge || badge.hidden || !stats || !code || typeof QrBadge === 'undefined') {
+    if (card) card.style.maxHeight = '';
+    return;
   }
-  if (url) {
-    const urlStyle = getComputedStyle(url);
-    textH += url.offsetHeight + parseFloat(urlStyle.marginTop) + parseFloat(urlStyle.marginBottom);
-  }
-  const fit = QrBadge.fitCode({
-    statsBottom: stats.offsetTop + stats.offsetHeight,
-    cardTop: card.offsetTop,
-    innerWidth: badge.clientWidth - padX,
-    chrome: padY + borderY + textH,
-  });
+  const fit = QrBadge.slot(stats.offsetTop + stats.offsetHeight);
   badge.style.top = fit.top + 'px';
-  if (!(fit.code > 0)) return;
   code.style.width = fit.code + 'px';
   code.style.height = fit.code + 'px';
+  if (!card) return;
+  const badgeBottom = fit.top + badge.offsetHeight;
+  const cardBottom = card.offsetTop + card.offsetHeight;
+  const limit = cardBottom - fit.gap - badgeBottom;
+  card.style.maxHeight = (limit > 0 ? limit : 0) + 'px';
 }
 function applyFrame() {
   const root = document.documentElement;
