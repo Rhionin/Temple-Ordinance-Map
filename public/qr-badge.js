@@ -13,6 +13,8 @@
   const INK = '#1c0a12';
   // Gap the badge keeps under the totals and above the place card.
   const GAP = 12;
+  // Fixed module square. The featured card wraps to fit this; the code does not resize.
+  const CODE = 180;
 
   function enabled(search) {
     const raw = String(search || '');
@@ -76,19 +78,18 @@
       .replace('fill="black"', 'fill="' + INK + '"');
   }
 
-  // Largest square that fits the rail under the totals and above the card.
-  // The rail's inner width is the cap; a tall card shrinks the code so the
-  // two never meet. Modules stay square — rounding them eats the gaps scanners use.
-  function fitCode(box) {
-    const source = box || {};
-    const statsBottom = Number(source.statsBottom) || 0;
-    const cardTop = Number(source.cardTop) || 0;
-    const innerWidth = Number(source.innerWidth) || 0;
-    const chrome = Number(source.chrome) || 0;
-    const top = statsBottom + GAP;
-    const room = cardTop - GAP - top - chrome;
-    const code = Math.floor(Math.min(innerWidth, room));
-    return { top: top, code: code > 0 ? code : 0, gap: GAP };
+  // The code stays this size for the whole cycle. Top sits under the totals.
+  // A long place name wraps inside the card instead of shrinking the square.
+  function slot(statsBottom) {
+    const bottom = Number(statsBottom) || 0;
+    return { top: bottom + GAP, code: CODE, gap: GAP };
+  }
+
+  function cardLimit(statsBottom, cardBottom, chrome) {
+    const placed = slot(statsBottom);
+    const badgeBottom = placed.top + (Number(chrome) || 0) + placed.code;
+    const room = (Number(cardBottom) || 0) - placed.gap - badgeBottom;
+    return room > 0 ? room : 0;
   }
 
   return {
@@ -98,10 +99,12 @@
     PAPER: PAPER,
     INK: INK,
     GAP: GAP,
+    CODE: CODE,
     enabled: enabled,
     targetFor: targetFor,
     matrix: matrix,
     svg: svg,
-    fitCode: fitCode,
+    slot: slot,
+    cardLimit: cardLimit,
   };
 });
