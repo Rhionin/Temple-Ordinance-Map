@@ -4,11 +4,19 @@
 // Never a name. created stays put when ordinances are merged; updated moves.
 
 import { serializeOrdinances } from '../lib/ordinances.js';
-import { countryForLight, fillCountries } from '../lib/country.js';
+import { countryForLight } from '../lib/country.js';
 import { tally } from '../lib/stats.js';
 import { RECENT_MS } from '../lib/quota.js';
 import { loadGeocache } from '../lib/query-cache.js';
 import { resolveMonth } from '../lib/month.js';
+import {
+  backfillGroupCountries,
+  getGroupLightsCache,
+  getGroupStatsCache,
+  readGroupState,
+  setGroupLightsCache,
+  setGroupStatsCache,
+} from '../lib/snapshot-cache.js';
 
 export async function ensureParty(db) {
   const read = () => db.prepare("SELECT id FROM groups WHERE slug = 'party'").first();
@@ -61,13 +69,27 @@ export function d1Store(db, groupId) {
     },
     async listLights(since) {
       const min = Number(since) || 0;
+      if (min > 0) {
+        const rows = await db.prepare(
+          `SELECT person_id, place, lat, lon, ordinance, created, updated, month, completed, country
+           FROM lights
+           WHERE group_id = ? AND (created > ? OR updated > ?)
+           ORDER BY created`
+        ).bind(group, min, min).all();
+        return rows.results || [];
+      }
+      const state = await readGroupState(db, group);
+      const cached = getGroupLightsCache(group, state.key);
+      if (cached) return cached;
       const rows = await db.prepare(
         `SELECT person_id, place, lat, lon, ordinance, created, updated, month, completed, country
          FROM lights
-         WHERE group_id = ? AND (created > ? OR updated > ?)
+         WHERE group_id = ?
          ORDER BY created`
-      ).bind(group, min, min).all();
-      return rows.results || [];
+      ).bind(group).all();
+      const lights = rows.results || [];
+      setGroupLightsCache(group, state.key, lights);
+      return lights;
     },
     async insertLight(light) {
       const country = countryForLight(light);
@@ -152,13 +174,17 @@ export function d1Store(db, groupId) {
       await db.prepare('INSERT OR IGNORE INTO sharers (group_id, id_hash, created) VALUES (?, ?, ?)').bind(group, hash, Date.now()).run();
     },
     async stats() {
-      const rows = await db.prepare('SELECT person_id, lat, lon, ordinance, country FROM lights WHERE group_id = ?').bind(group).all();
+      await backfillGroupCountries(db, group);
+      const state = await readGroupState(db, group);
+      const cached = getGroupStatsCache(group, state.key);
+      if (cached) return cached;
+      const rows = await db.prepare(
+        'SELECT person_id, lat, lon, ordinance, country FROM lights WHERE group_id = ?'
+      ).bind(group).all();
       const lights = rows.results || [];
-      for (const update of fillCountries(lights)) {
-        await db.prepare('UPDATE lights SET country = ? WHERE group_id = ? AND person_id = ?').bind(update.country, group, update.id).run();
-      }
-      const sharers = await db.prepare('SELECT COUNT(*) AS n FROM sharers WHERE group_id = ?').bind(group).first();
-      return { ...tally(lights), sharers: sharers && sharers.n ? sharers.n : 0 };
+      const stats = { ...tally(lights), sharers: state.sharers };
+      setGroupStatsCache(group, state.key, stats);
+      return stats;
     },
   };
 }
