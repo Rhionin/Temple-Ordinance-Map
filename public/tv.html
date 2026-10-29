@@ -132,6 +132,9 @@ function fitStage() {
     stage.style.left = center.x + 'px';
     stage.style.top = center.y + 'px';
   }
+  try {
+    if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize({ animate: false });
+  } catch (error) { /* map not ready yet */ }
 }
 fitStage();
 function placeQr() {
@@ -888,5 +891,8 @@ if (params.get('fps') === '1' && typeof PerfOverlay !== 'undefined') {
     phase() { return act; },
     lights() { return PerfOverlay.countRendered(markers.values()); },
   });
+}
+if (params.get('align') === '1' && lightCanvas) {
+  window.__lightAlign = function (lat, lon) { return lightCanvas.alignError(lat, lon); };
 }
 </script></body></html>

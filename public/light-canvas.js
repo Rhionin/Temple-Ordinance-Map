@@ -11,7 +11,6 @@
   const FRAME_MS = 1000 / 30;
   const LIGHTS_PANE = 'lightsPane';
   const LIGHTS_PANE_Z = 450;
-  // Match the old 14px divIcon; halo fits in ~22 CSS px (shadows were ~12–30px).
   const DISPLAY_NORMAL = 22;
   const DISPLAY_BLOOM = 40;
   const SPRITE = 44;
@@ -54,6 +53,11 @@
     const scale = popScale(ageMs, reduced);
     const cap = bloom ? DISPLAY_BLOOM * 1.08 : DISPLAY_NORMAL * 1.05;
     return Math.min(base * scale, cap);
+  }
+
+  function layerDrawPoint(map, bounds, lat, lon) {
+    const lp = map.latLngToLayerPoint([lat, lon]);
+    return { x: lp.x - bounds.min.x, y: lp.y - bounds.min.y };
   }
 
   function paintGlow(ctx, size, bloom) {
@@ -135,67 +139,139 @@
 
   function createLayer(map, options) {
     const L = typeof window !== 'undefined' ? window.L : null;
-    if (!L || !map || typeof document === 'undefined') return null;
+    if (!L || !L.Renderer || !map || typeof document === 'undefined') return null;
     const opts = options || {};
     const reduced = !!opts.reducedMotion;
     const sprites = makeSprites(document);
     const lights = new Map();
     let bloomKey = null;
-    let canvas = null;
-    let ctx = null;
     let raf = 0;
     let lastDraw = 0;
     let running = false;
     let dpr = 1;
+    let renderer = null;
 
-    function resize() {
-      if (!canvas || !map.getSize) return;
-      const size = map.getSize();
-      dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.floor(size.x * dpr));
-      canvas.height = Math.max(1, Math.floor(size.y * dpr));
-      canvas.style.width = size.x + 'px';
-      canvas.style.height = size.y + 'px';
-      if (ctx) ctx.setTransform(1, 0, 0, 1, 0, 0);
-      draw(true);
-    }
+    const LightRenderer = L.Renderer.extend({
+      options: { padding: 0, pane: LIGHTS_PANE },
 
-    function draw(force) {
-      if (!ctx || !map._loaded) return;
-      const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-      if (!force && !reduced && now - lastDraw < FRAME_MS && !map._animatingZoom) return;
-      lastDraw = now;
-      const size = map.getSize();
-      ctx.save();
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, size.x, size.y);
-      ctx.globalCompositeOperation = 'screen';
-      const pad = DISPLAY_BLOOM * 6;
-      for (const entry of lights.values()) {
-        if (!entry.visible) continue;
-        const point = map.latLngToContainerPoint([entry.lat, entry.lon]);
-        if (point.x < -pad || point.y < -pad || point.x > size.x + pad || point.y > size.y + pad) continue;
-        const age = now - entry.addedAt;
-        const pop = popScale(age, reduced);
-        const flick = flickerOpacity(entry.seed, now, reduced);
-        const fade = fadeOpacity(entry.fadeAt, now, reduced);
-        const bloom = bloomKey === entry.key;
-        const w = displaySize(bloom, age, reduced);
-        const tone = bloom ? BLOOM_ALPHA : DRAW_ALPHA;
-        const alpha = flick * fade * tone;
-        if (alpha <= 0.01 || w <= 0.5) continue;
-        const sprite = bloom ? sprites.bloom : sprites.normal;
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(sprite, point.x - w / 2, point.y - w / 2, w, w);
-      }
-      ctx.restore();
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
-    }
+      getPane() {
+        ensureLightsPane(this._map);
+        return this._map.getPane(LIGHTS_PANE);
+      },
+
+      getEvents() {
+        const events = L.Renderer.prototype.getEvents.call(this);
+        events.move = this._onMoveWhileAnimating;
+        events.moveend = this._onMoveEnd;
+        events.viewreset = this._onViewReset;
+        events.resize = this._onViewReset;
+        events.zoom = this._onZoomDraw;
+        return events;
+      },
+
+      onAdd() {
+        L.Renderer.prototype.onAdd.call(this);
+        startLoop();
+      },
+
+      onRemove() {
+        stopLoop();
+        L.Renderer.prototype.onRemove.call(this);
+      },
+
+      _initContainer() {
+        this._container = L.DomUtil.create('canvas', 'leaflet-light-canvas leaflet-layer');
+        this._canvas = this._container;
+        this._container.style.pointerEvents = 'none';
+        this._container.style.zIndex = String(LIGHTS_PANE_Z);
+        this._ctx = this._container.getContext('2d', { alpha: true });
+      },
+
+      _destroyContainer() {
+        L.DomUtil.remove(this._container);
+        this._ctx = null;
+        delete this._canvas;
+        delete this._container;
+      },
+
+      _onViewReset() {
+        this._reset();
+        this._draw(true);
+      },
+
+      _onMoveEnd() {
+        this._update();
+        this._draw(true);
+      },
+
+      _onZoomDraw() {
+        L.Renderer.prototype._onZoom.call(this);
+        this._draw(true);
+      },
+
+      _onMoveWhileAnimating() {
+        if (this._map._animatingZoom) return;
+        this._update();
+        this._draw(true);
+      },
+
+      _update() {
+        if (this._map._animatingZoom && this._bounds) return;
+        L.Renderer.prototype._update.call(this);
+        if (!this._bounds || !this._container) return;
+        const size = this._bounds.getSize();
+        dpr = window.devicePixelRatio || 1;
+        this._container.width = Math.max(1, Math.floor(size.x * dpr));
+        this._container.height = Math.max(1, Math.floor(size.y * dpr));
+        this._container.style.width = size.x + 'px';
+        this._container.style.height = size.y + 'px';
+        L.DomUtil.setPosition(this._container, this._bounds.min);
+      },
+
+      _updatePaths() {
+        this._draw(true);
+      },
+
+      _draw(force) {
+        if (!this._ctx || !this._map._loaded || !this._bounds) return;
+        if (this._map._animatingZoom) return;
+        const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+        if (!force && !reduced && now - lastDraw < FRAME_MS && !this._map._animatingZoom) return;
+        lastDraw = now;
+        const size = this._bounds.getSize();
+        this._ctx.save();
+        this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        this._ctx.clearRect(0, 0, size.x, size.y);
+        this._ctx.globalCompositeOperation = 'screen';
+        const pad = DISPLAY_BLOOM * 6;
+        for (const entry of lights.values()) {
+          if (!entry.visible) continue;
+          const point = layerDrawPoint(this._map, this._bounds, entry.lat, entry.lon);
+          if (point.x < -pad || point.y < -pad || point.x > size.x + pad || point.y > size.y + pad) continue;
+          const age = now - entry.addedAt;
+          const flick = flickerOpacity(entry.seed, now, reduced);
+          const fade = fadeOpacity(entry.fadeAt, now, reduced);
+          const bloom = bloomKey === entry.key;
+          const w = displaySize(bloom, age, reduced);
+          const tone = bloom ? BLOOM_ALPHA : DRAW_ALPHA;
+          const alpha = flick * fade * tone;
+          if (alpha <= 0.01 || w <= 0.5) continue;
+          const sprite = bloom ? sprites.bloom : sprites.normal;
+          this._ctx.globalAlpha = alpha;
+          this._ctx.drawImage(sprite, point.x - w / 2, point.y - w / 2, w, w);
+        }
+        this._ctx.restore();
+        this._ctx.globalAlpha = 1;
+        this._ctx.globalCompositeOperation = 'source-over';
+      },
+    });
+
+    renderer = new LightRenderer();
+    renderer.addTo(map);
 
     function loop() {
       raf = 0;
-      draw(false);
+      if (renderer) renderer._draw(false);
       if (running && !reduced) raf = requestAnimationFrame(loop);
     }
 
@@ -212,39 +288,6 @@
         raf = 0;
       }
     }
-
-    const Layer = L.Layer.extend({
-      onAdd() {
-        ensureLightsPane(map);
-        canvas = L.DomUtil.create('canvas', 'leaflet-light-canvas');
-        canvas.style.pointerEvents = 'none';
-        canvas.style.zIndex = String(LIGHTS_PANE_Z);
-        map.getPane(LIGHTS_PANE).appendChild(canvas);
-        ctx = canvas.getContext('2d', { alpha: true });
-        resize();
-        map.on('move', this._redraw, this);
-        map.on('zoom', this._redraw, this);
-        map.on('zoomanim', this._redraw, this);
-        map.on('resize', this._resize, this);
-        startLoop();
-        draw(true);
-      },
-      onRemove() {
-        stopLoop();
-        map.off('move', this._redraw, this);
-        map.off('zoom', this._redraw, this);
-        map.off('zoomanim', this._redraw, this);
-        map.off('resize', this._resize, this);
-        if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
-        canvas = null;
-        ctx = null;
-      },
-      _redraw() { draw(true); },
-      _resize() { resize(); },
-    });
-
-    const layer = new Layer();
-    layer.addTo(map);
 
     function upsert(key, lat, lon) {
       const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
@@ -266,30 +309,47 @@
         entry.visible = true;
         entry.fadeAt = null;
       }
-      draw(true);
+      if (renderer) renderer._updatePaths();
       startLoop();
       return entry;
+    }
+
+    function alignError(lat, lon) {
+      if (!renderer || !renderer._bounds || !renderer._map) return { px: null, animating: true };
+      const mapRef = renderer._map;
+      if (mapRef._animatingZoom) return { px: null, animating: true };
+      const expected = mapRef.latLngToContainerPoint([lat, lon]);
+      const local = layerDrawPoint(mapRef, renderer._bounds, lat, lon);
+      const canvas = renderer._canvas;
+      if (!canvas) return { px: null, animating: true };
+      const pos = L.DomUtil.getPosition(canvas);
+      const layerAt = L.point(pos.x + local.x, pos.y + local.y);
+      const fromCanvas = mapRef.layerPointToContainerPoint(layerAt);
+      return {
+        px: Math.hypot(expected.x - fromCanvas.x, expected.y - fromCanvas.y),
+        animating: false,
+      };
     }
 
     return {
       upsert: upsert,
       remove(key) {
         lights.delete(key);
-        draw(true);
+        if (renderer) renderer._updatePaths();
       },
       clear() {
         lights.clear();
         bloomKey = null;
-        draw(true);
+        if (renderer) renderer._updatePaths();
       },
       setBloom(key) {
         bloomKey = key || null;
-        draw(true);
+        if (renderer) renderer._updatePaths();
       },
       fadeAll() {
         const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
         for (const entry of lights.values()) entry.fadeAt = now;
-        draw(true);
+        if (renderer) renderer._updatePaths();
       },
       countRendered() {
         let n = 0;
@@ -300,10 +360,13 @@
         const entry = lights.get(key);
         return entry ? [entry.lat, entry.lon] : null;
       },
+      alignError: alignError,
+      _renderer: function () { return renderer; },
       destroy() {
         stopLoop();
-        map.removeLayer(layer);
+        map.removeLayer(renderer);
         lights.clear();
+        renderer = null;
       },
     };
   }
@@ -323,6 +386,7 @@
     popScale: popScale,
     fadeOpacity: fadeOpacity,
     displaySize: displaySize,
+    layerDrawPoint: layerDrawPoint,
     paintGlow: paintGlow,
     ensureLightsPane: ensureLightsPane,
     throttle: throttle,
