@@ -49,6 +49,7 @@ test('two groups keep the same person, and reset clears only one group', async (
   const party = await ensureParty(db);
   const again = await ensureParty(db);
   assert.equal(again, party);
+  assert.equal(await ensureParty({ prepare() { throw new Error('cached party id must skip D1'); } }), party);
   sqlite.prepare(
     `INSERT INTO groups (slug, title, subtitle, months, admin_token_hash, disabled, deleted, created)
      VALUES ('friends', '', '', 12, '', 0, 0, 1)`
