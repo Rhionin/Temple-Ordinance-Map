@@ -31,4 +31,5 @@ test('CI runs wrangler dry-run and worker bundle smoke', () => {
   assert.match(yml, /npm ci/);
   assert.match(yml, /playwright install --with-deps chromium/);
   assert.match(yml, /ms-playwright/);
+  assert.match(yml, /REQUIRE_BROWSER_TESTS/);
 });

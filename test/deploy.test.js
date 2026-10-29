@@ -36,12 +36,12 @@ test('deploy workflow tests, migrates, then deploys without calling reset', () =
   assert.doesNotMatch(yml, /RESET_TOKEN/);
 });
 
-test('deploy workflow skips Playwright align and runs npm ci before tests', () => {
+test('deploy workflow runs npm ci before plain unit tests without Playwright install', () => {
   const yml = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'deploy.yml'), 'utf8');
   const ci = yml.indexOf('npm ci');
   const tests = yml.indexOf('node --test test/');
   assert.ok(ci >= 0 && tests > ci, 'npm ci must run before tests');
-  assert.match(yml, /test-skip-pattern/);
+  assert.doesNotMatch(yml, /test-skip-pattern/);
   assert.doesNotMatch(yml, /playwright install/);
 });
 

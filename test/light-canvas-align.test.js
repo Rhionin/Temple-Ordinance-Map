@@ -2,19 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { spawn } = require('node:child_process');
 const path = require('path');
+const { chromiumReady } = require('./browser-test');
 
 test('light canvas stays aligned with the map through timeline flyTos', async t => {
-  let playwright;
-  try {
-    playwright = require('playwright');
-  } catch (error) {
-    t.skip('playwright not installed');
-    return;
-  }
-  if (!playwright.chromium) {
-    t.skip('playwright chromium missing');
-    return;
-  }
+  if (!chromiumReady(t)) return;
   const script = path.join(__dirname, '..', 'scripts', 'map-align-check.mjs');
   const result = await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [script], { cwd: path.join(__dirname, '..'), env: process.env });
