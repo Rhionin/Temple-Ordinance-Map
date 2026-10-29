@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { resetSnapshotCaches } = require('../lib/snapshot-cache');
+const { resetPollCachesForTests } = require('../lib/poll-cache.js');
 
 function openDb() {
   const { DatabaseSync } = require('node:sqlite');
@@ -38,6 +39,7 @@ function openDb() {
 
 test.beforeEach(() => {
   resetSnapshotCaches();
+  resetPollCachesForTests();
 });
 
 test('master listLights(since) is empty when nothing changed and folds only touched ancestors', async () => {

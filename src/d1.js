@@ -10,18 +10,22 @@ import { RECENT_MS } from '../lib/quota.js';
 import { loadGeocache } from '../lib/query-cache.js';
 import { resolveMonth } from '../lib/month.js';
 import {
-  backfillGroupCountries,
-  getGroupLightsCache,
-  getGroupStatsCache,
-  readGroupState,
-  setGroupLightsCache,
-  setGroupStatsCache,
-} from '../lib/snapshot-cache.js';
+  groupLightsSince,
+  groupPollBundle,
+  invalidateGroupPoll,
+  cachedPartyId,
+  rememberPartyId,
+} from '../lib/poll-cache.js';
 
 export async function ensureParty(db) {
+  const remembered = cachedPartyId();
+  if (remembered) return remembered;
   const read = () => db.prepare("SELECT id FROM groups WHERE slug = 'party'").first();
   const existing = await read();
-  if (existing && existing.id) return existing.id;
+  if (existing && existing.id) {
+    rememberPartyId(existing.id);
+    return existing.id;
+  }
   try {
     await db.prepare(
       `INSERT INTO groups (slug, title, subtitle, months, admin_token_hash, disabled, deleted, created)
@@ -29,10 +33,14 @@ export async function ensureParty(db) {
     ).bind(Date.now()).run();
   } catch (error) {
     const again = await read();
-    if (again && again.id) return again.id;
+    if (again && again.id) {
+      rememberPartyId(again.id);
+      return again.id;
+    }
     throw error;
   }
   const created = await read();
+  rememberPartyId(created.id);
   return created.id;
 }
 
@@ -68,28 +76,8 @@ export function d1Store(db, groupId) {
       return loadGeocache(db, queries);
     },
     async listLights(since) {
-      const min = Number(since) || 0;
-      if (min > 0) {
-        const rows = await db.prepare(
-          `SELECT person_id, place, lat, lon, ordinance, created, updated, month, completed, country
-           FROM lights
-           WHERE group_id = ? AND (created > ? OR updated > ?)
-           ORDER BY created`
-        ).bind(group, min, min).all();
-        return rows.results || [];
-      }
-      const state = await readGroupState(db, group);
-      const cached = getGroupLightsCache(group, state.key);
-      if (cached) return cached;
-      const rows = await db.prepare(
-        `SELECT person_id, place, lat, lon, ordinance, created, updated, month, completed, country
-         FROM lights
-         WHERE group_id = ?
-         ORDER BY created`
-      ).bind(group).all();
-      const lights = rows.results || [];
-      setGroupLightsCache(group, state.key, lights);
-      return lights;
+      const bundle = await groupPollBundle(db, group);
+      return groupLightsSince(bundle, since);
     },
     async insertLight(light) {
       const country = countryForLight(light);
@@ -101,6 +89,7 @@ export function d1Store(db, groupId) {
         group, light.id, light.place, light.lat, light.lon, light.ordinance || '',
         light.created, light.updated || light.created, light.month || null, country, light.completed || null
       ).run();
+      if (result.meta.changes > 0) invalidateGroupPoll(group);
       return result.meta.changes > 0;
     },
     async mergeOrdinances(merge) {
@@ -110,10 +99,14 @@ export function d1Store(db, groupId) {
       const light = await db.prepare(
         'UPDATE lights SET ordinance = ?, updated = ?, month = COALESCE(?, month), completed = COALESCE(?, completed) WHERE group_id = ? AND person_id = ?'
       ).bind(ordinance, merge.updated, month, completed, group, merge.id).run();
-      if (light.meta.changes > 0) return true;
+      if (light.meta.changes > 0) {
+        invalidateGroupPoll(group);
+        return true;
+      }
       const job = await db.prepare(
         "UPDATE jobs SET ordinance = ?, month = COALESCE(?, month), completed = COALESCE(?, completed) WHERE group_id = ? AND person_id = ? AND status = 'pending'"
       ).bind(ordinance, month, completed, group, merge.id).run();
+      if (job.meta.changes > 0) invalidateGroupPoll(group);
       return job.meta.changes > 0;
     },
     async setMonth(update) {
@@ -123,10 +116,14 @@ export function d1Store(db, groupId) {
       const light = await db.prepare(
         'UPDATE lights SET month = ?, completed = COALESCE(?, completed), updated = ? WHERE group_id = ? AND person_id = ? AND (month IS NULL OR month > ?)'
       ).bind(month, completed, update.updated, group, update.id, month).run();
-      if (light.meta.changes > 0) return true;
+      if (light.meta.changes > 0) {
+        invalidateGroupPoll(group);
+        return true;
+      }
       const job = await db.prepare(
         "UPDATE jobs SET month = ?, completed = COALESCE(?, completed) WHERE group_id = ? AND person_id = ? AND status = 'pending' AND (month IS NULL OR month > ?)"
       ).bind(month, completed, group, update.id, month).run();
+      if (job.meta.changes > 0) invalidateGroupPoll(group);
       return job.meta.changes > 0;
     },
     async insertJob(job) {
@@ -143,6 +140,7 @@ export function d1Store(db, groupId) {
            completed = excluded.completed
          WHERE jobs.status = 'failed'`
       ).bind(group, job.id, job.place, job.ordinance || '', job.created, job.cursor || 0, job.month || null, job.completed || null).run();
+      if (result.meta.changes > 0) invalidateGroupPoll(group);
       return result.meta.changes > 0;
     },
     async pendingCount() {
@@ -168,23 +166,16 @@ export function d1Store(db, groupId) {
         db.prepare('DELETE FROM jobs WHERE group_id = ?').bind(group),
         db.prepare('DELETE FROM sharers WHERE group_id = ?').bind(group),
       ]);
+      invalidateGroupPoll(group);
     },
     async noteSharer(hash) {
       if (!hash) return;
       await db.prepare('INSERT OR IGNORE INTO sharers (group_id, id_hash, created) VALUES (?, ?, ?)').bind(group, hash, Date.now()).run();
+      invalidateGroupPoll(group);
     },
     async stats() {
-      await backfillGroupCountries(db, group);
-      const state = await readGroupState(db, group);
-      const cached = getGroupStatsCache(group, state.key);
-      if (cached) return cached;
-      const rows = await db.prepare(
-        'SELECT person_id, lat, lon, ordinance, country FROM lights WHERE group_id = ?'
-      ).bind(group).all();
-      const lights = rows.results || [];
-      const stats = { ...tally(lights), sharers: state.sharers };
-      setGroupStatsCache(group, state.key, stats);
-      return stats;
+      const bundle = await groupPollBundle(db, group);
+      return bundle.stats;
     },
   };
 }

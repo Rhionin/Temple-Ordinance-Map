@@ -150,7 +150,8 @@ test('both map displays run the five-minute show', () => {
   assert.match(tv, /deck\.arrive/);
   assert.match(tv, /playMode !== 'show'/);
   assert.match(server, /\/map' \? 'tv\.html'/);
-  assert.match(worker, /\/map' \? '\/tv\.html'/);
+  assert.match(worker, /mapPage/);
+  assert.match(worker, /\/tv\.html/);
   assert.match(server, /'\/': 'tv\.html'/);
   assert.match(worker, /'\/': '\/tv\.html'/);
 });

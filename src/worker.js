@@ -48,9 +48,29 @@ export default {
     if (url.pathname === '/admin') return assetPage(request, env, '/super-admin.html');
     const groupPath = url.pathname.match(/^\/g\/([^/]+)(\/map|\/admin)?\/?$/);
     if (groupPath) {
-      const group = await groups.find(groupSlug(groupPath[1]));
+      const slug = groupSlug(groupPath[1]);
+      let group = null;
+      try {
+        group = await groups.find(slug);
+      } catch (error) {
+        group = groups.findStale(slug);
+      }
+      const mapPage = groupPath[2] === '/map';
+      if (mapPage) {
+        if (!publicGroup(group)) {
+          group = group || {
+            slug: slug,
+            title: '',
+            subtitle: '',
+            months: 12,
+            disabled: 0,
+            deleted: 0,
+          };
+        }
+        return assetPage(request, env, '/tv.html');
+      }
       if (!publicGroup(group)) return withSecurityHeaders(notFound());
-      const file = groupPath[2] === '/map' ? '/tv.html' : groupPath[2] === '/admin' ? '/group-admin.html' : '/upload.html';
+      const file = groupPath[2] === '/admin' ? '/group-admin.html' : '/upload.html';
       return assetPage(request, env, file);
     }
     const page = PAGES[url.pathname];
