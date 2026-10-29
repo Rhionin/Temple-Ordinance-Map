@@ -566,23 +566,33 @@ function startTimeline() {
 function finishTimeline() {
   if (versions.boundary()) return;
   clearTimeout(timer);
-  clearMarkers();
   if (playMode === 'timeline') {
+    clearMarkers();
     startTimeline();
     return;
   }
   if (playMode === 'spotlight') {
+    clearMarkers();
     startSpotlight();
     return;
   }
   const left = showStarted + (showPlan ? showPlan.showMs : showMs) - Date.now();
-  if (left < 500) startShow();
-  else startShowSpotlights();
+  if (left < 500) {
+    clearMarkers();
+    startShow();
+  } else {
+    if (lightCanvas) lightCanvas.clearFade();
+    startShowSpotlights();
+  }
 }
 function startShow() {
   showStarted = Date.now();
   deck.seed([...catalog.values()]);
   startTimeline();
+}
+function syncCatalogLights(stagger) {
+  const list = [...catalog.values()];
+  list.forEach((light, index) => present(light, stagger ? Math.min(index * 90, 1500) : 0));
 }
 function startShowSpotlights() {
   act = 'spotlight';
@@ -590,13 +600,13 @@ function startShowSpotlights() {
   clearTimeout(timer);
   showTimelineChrome(false);
   hideCard();
-  clearMarkers();
-  const lights = [...catalog.values()];
-  deck.seed(lights);
-  lights.forEach((light, index) => present(light, Math.min(index * 90, 1500)));
+  if (lightCanvas) lightCanvas.clearFade();
+  deck.seed([...catalog.values()]);
+  syncCatalogLights(false);
   mode = 'idle';
   currentKey = null;
-  timer = setTimeout(runShowSpot, lights.length ? 900 : 400);
+  setBloom(null);
+  timer = setTimeout(runShowSpot, deck.all().length ? 900 : 400);
 }
 function startSpotlight() {
   act = 'spotlight';

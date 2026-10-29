@@ -52,8 +52,18 @@
     return 1 - age / FADE_MS;
   }
 
-  function displaySize(bloom, ageMs, reduced) {
-    const pop = popScale(ageMs, reduced);
+  function popMultiplier(entry, now, reduced) {
+    if (!entry || entry.popDone || reduced) return 1;
+    const age = now - entry.bornAt;
+    if (age >= POP_MS) {
+      entry.popDone = true;
+      return 1;
+    }
+    return popScale(age, reduced);
+  }
+
+  function displaySize(bloom, popMult, reduced) {
+    const pop = popMult == null ? 1 : popMult;
     const base = (bloom ? DISPLAY_BLOOM : DISPLAY_NORMAL) * pop;
     if (bloom) return Math.min(base * 1.05, DISPLAY_BLOOM * 6);
     return Math.min(base, DISPLAY_NORMAL * 6);
@@ -194,6 +204,30 @@
     let running = false;
     let dpr = 1;
     let renderer = null;
+    let canvasLayout = { w: 0, h: 0, minX: NaN, minY: NaN };
+
+    function syncCanvasSize(container, bounds) {
+      const size = bounds.getSize();
+      const min = bounds.min;
+      const nextDpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.floor(size.x * nextDpr));
+      const h = Math.max(1, Math.floor(size.y * nextDpr));
+      const moved = canvasLayout.minX !== min.x || canvasLayout.minY !== min.y;
+      const resized = canvasLayout.w !== w || canvasLayout.h !== h || dpr !== nextDpr;
+      dpr = nextDpr;
+      container.style.width = size.x + 'px';
+      container.style.height = size.y + 'px';
+      L.DomUtil.setPosition(container, min);
+      if (resized) {
+        container.width = w;
+        container.height = h;
+        canvasLayout = { w: w, h: h, minX: min.x, minY: min.y };
+      } else if (moved) {
+        canvasLayout.minX = min.x;
+        canvasLayout.minY = min.y;
+      }
+      return resized || moved;
+    }
 
     const LightRenderer = L.Renderer.extend({
       options: { padding: 0, pane: LIGHTS_PANE },
@@ -244,7 +278,7 @@
       },
 
       _onMoveEnd() {
-        this._update();
+        this._syncLayout(true);
         this._draw(true);
       },
 
@@ -255,21 +289,20 @@
 
       _onMoveWhileAnimating() {
         if (this._map._animatingZoom) return;
-        this._update();
+        this._syncLayout(false);
         this._draw(true);
+      },
+
+      _syncLayout(forceReset) {
+        if (this._map._animatingZoom && this._bounds && !forceReset) return;
+        L.Renderer.prototype._update.call(this);
+        if (!this._bounds || !this._container) return;
+        syncCanvasSize(this._container, this._bounds);
       },
 
       _update() {
         if (this._map._animatingZoom && this._bounds) return;
-        L.Renderer.prototype._update.call(this);
-        if (!this._bounds || !this._container) return;
-        const size = this._bounds.getSize();
-        dpr = window.devicePixelRatio || 1;
-        this._container.width = Math.max(1, Math.floor(size.x * dpr));
-        this._container.height = Math.max(1, Math.floor(size.y * dpr));
-        this._container.style.width = size.x + 'px';
-        this._container.style.height = size.y + 'px';
-        L.DomUtil.setPosition(this._container, this._bounds.min);
+        this._syncLayout(false);
       },
 
       _updatePaths() {
@@ -292,11 +325,11 @@
           if (!entry.visible) continue;
           const point = layerDrawPoint(this._map, this._bounds, entry.lat, entry.lon);
           if (point.x < -pad || point.y < -pad || point.x > size.x + pad || point.y > size.y + pad) continue;
-          const age = now - entry.addedAt;
+          const pop = popMultiplier(entry, now, reduced);
           const flick = flickerOpacity(entry.seed, now, reduced);
           const fade = fadeOpacity(entry.fadeAt, now, reduced);
           const bloom = bloomKey === entry.key;
-          const w = displaySize(bloom, age, reduced);
+          const w = displaySize(bloom, pop, reduced);
           const tone = bloom ? BLOOM_ALPHA : DRAW_ALPHA;
           const dim = spotlightDim && bloomKey && !bloom
             ? dimOthersLevel(now, dimState.active)
@@ -345,7 +378,8 @@
           lat: lat,
           lon: lon,
           seed: Math.random() * 2,
-          addedAt: now,
+          bornAt: now,
+          popDone: false,
           fadeAt: null,
           visible: true,
         };
@@ -402,6 +436,25 @@
         beginDimEase(dimState, key ? SPOT_OTHER : 1, now);
         if (renderer) renderer._updatePaths();
       },
+      clearFade() {
+        for (const entry of lights.values()) {
+          entry.fadeAt = null;
+          entry.visible = true;
+        }
+        if (renderer) renderer._updatePaths();
+      },
+      snapshotAnimation() {
+        const rows = [];
+        for (const entry of lights.values()) {
+          rows.push({
+            key: entry.key,
+            bornAt: entry.bornAt,
+            seed: entry.seed,
+            popDone: entry.popDone,
+          });
+        }
+        return rows;
+      },
       fadeAll() {
         const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
         for (const entry of lights.values()) entry.fadeAt = now;
@@ -444,6 +497,7 @@
     flickerOpacity: flickerOpacity,
     popScale: popScale,
     fadeOpacity: fadeOpacity,
+    popMultiplier: popMultiplier,
     displaySize: displaySize,
     layerDrawPoint: layerDrawPoint,
     paintGlow: paintGlow,
