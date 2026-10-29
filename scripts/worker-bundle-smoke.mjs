@@ -47,6 +47,16 @@ async function main() {
     const body = await lights.json();
     if (!Array.isArray(body)) throw new Error('/api/lights body is not an array');
     console.log(JSON.stringify({ event: 'worker_smoke_ok', lights: body.length, bundle: outdir }));
+
+    const bundled = fs.readFileSync(path.join(outdir, 'worker.js'), 'utf8');
+    if (!/tryEnsureParty/.test(bundled)) {
+      throw new Error('bundled worker.js missing tryEnsureParty (D1 quota must not 1101)');
+    }
+    if (!/apiErrorResponse/.test(bundled)) {
+      throw new Error('bundled worker.js missing apiErrorResponse top-level guard');
+    }
+
+    run('node', ['--test', 'test/worker-quota.test.js']);
   } finally {
     await worker.dispose();
   }
