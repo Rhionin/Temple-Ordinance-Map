@@ -6,7 +6,8 @@ html,body{margin:0;height:100%;height:100svh;height:100dvh;overflow:hidden;backg
 #vv-probe{position:fixed;left:0;top:0;width:100%;width:100vw;height:100%;height:100vh;height:100svh;height:100dvh;visibility:hidden;pointer-events:none}
 #stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform:translate(-50%,-50%) rotate(var(--turn,0deg)) scale(var(--fit,1));transform-origin:center center;background:#07040c}
 #map{position:absolute;left:0;top:0;width:var(--map-w,1420px);height:1080px;background:#07040c;visibility:hidden}
-.leaflet-light-canvas{pointer-events:none}
+.leaflet-light-canvas{pointer-events:none;z-index:450}
+.leaflet-lightsPane-pane{z-index:450!important;pointer-events:none}
 #rail{position:absolute;top:0;right:0;width:var(--rail,500px);height:1080px;z-index:1000;background:#07040c;border-left:1px solid rgba(255,196,120,.28);pointer-events:none;contain:layout paint;isolation:isolate}
 .leaflet-container{background:#07040c}
 .leaflet-div-icon,.candle-icon{background:transparent;border:none}

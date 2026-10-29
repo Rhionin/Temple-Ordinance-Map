@@ -6,9 +6,14 @@ const {
   flickerOpacity,
   popScale,
   fadeOpacity,
+  displaySize,
   throttle,
   MOVE_PAINT_MS,
   FRAME_MS,
+  DISPLAY_NORMAL,
+  DISPLAY_BLOOM,
+  LIGHTS_PANE,
+  LIGHTS_PANE_Z,
 } = require('../public/light-canvas');
 
 test('flicker and pop stay in a gentle visible range', () => {
@@ -19,6 +24,10 @@ test('flicker and pop stay in a gentle visible range', () => {
   assert.ok(samples.every(v => v >= 0.7 && v <= 1.05), samples.join(','));
   assert.ok(popScale(0, false) > 1);
   assert.equal(popScale(2000, false), 1);
+  assert.equal(displaySize(false, 2000, false), DISPLAY_NORMAL);
+  assert.ok(displaySize(true, 2000, false) <= DISPLAY_BLOOM * 1.08);
+  assert.ok(DISPLAY_NORMAL <= 24);
+  assert.ok(DISPLAY_BLOOM <= 44);
   assert.equal(fadeOpacity(null, 1000, false), 1);
   assert.ok(fadeOpacity(0, 900, false) < 0.5);
   assert.equal(fadeOpacity(0, 2000, false), 0);
@@ -45,6 +54,9 @@ test('the TV page draws lights on one canvas layer and throttles country paint',
   assert.match(tv, /light-canvas\.js/);
   assert.match(tv, /LightCanvas\.createLayer/);
   assert.match(tv, /LightCanvas\.attachCountryRepaint/);
+  assert.match(tv, /leaflet-lightsPane-pane/);
+  assert.equal(LIGHTS_PANE, 'lightsPane');
+  assert.equal(LIGHTS_PANE_Z, 450);
   assert.doesNotMatch(tv, /L\.divIcon/);
   assert.doesNotMatch(tv, /backdrop-filter/);
   assert.match(tv, /contain:layout paint/);
