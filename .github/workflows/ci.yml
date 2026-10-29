@@ -11,4 +11,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
+      - run: npm ci
       - run: node --test test/
+      - name: Wrangler bundle dry-run
+        run: npx wrangler deploy --dry-run --outdir /tmp/wrangler-bundle-ci
+      - name: Worker bundle smoke (workerd + local D1)
+        run: node scripts/worker-bundle-smoke.mjs
+        env:
+          WRANGLER_OUTDIR: /tmp/wrangler-bundle-ci
