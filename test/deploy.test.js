@@ -36,6 +36,15 @@ test('deploy workflow tests, migrates, then deploys without calling reset', () =
   assert.doesNotMatch(yml, /RESET_TOKEN/);
 });
 
+test('deploy workflow skips Playwright align and runs npm ci before tests', () => {
+  const yml = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'deploy.yml'), 'utf8');
+  const ci = yml.indexOf('npm ci');
+  const tests = yml.indexOf('node --test test/');
+  assert.ok(ci >= 0 && tests > ci, 'npm ci must run before tests');
+  assert.match(yml, /test-skip-pattern/);
+  assert.doesNotMatch(yml, /playwright install/);
+});
+
 test('poll index migration 0007 is optional and needs no app code dependency', () => {
   const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '0007_poll_indexes.sql'), 'utf8');
   assert.match(sql, /CREATE INDEX IF NOT EXISTS/);

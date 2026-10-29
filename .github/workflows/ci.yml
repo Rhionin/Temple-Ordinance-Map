@@ -11,4 +11,20 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
+      - run: npm ci
+      - name: Get Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
       - run: node --test test/
+      - name: Wrangler bundle dry-run
+        run: npx wrangler deploy --dry-run --outdir /tmp/wrangler-bundle-ci
+      - name: Worker bundle smoke (workerd + local D1)
+        run: node scripts/worker-bundle-smoke.mjs
+        env:
+          WRANGLER_OUTDIR: /tmp/wrangler-bundle-ci
