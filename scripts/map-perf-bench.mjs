@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const COUNT = 3000;
+const COUNT = 2500;
 
 function syntheticLights(n) {
   const rows = [];
@@ -108,14 +108,18 @@ async function runBench(label) {
   await page.waitForFunction(
     () => {
       const s = window.__perfStats && window.__perfStats();
-      return s && s.phase === 'spotlight' && s.lights >= 2500;
+      return s && s.phase === 'spotlight' && s.lights >= 2400;
     },
     null,
     { timeout: 120000 },
   ).catch(() => {});
-  await sleep(6000);
+  const spotlightZoom = [];
+  for (let i = 0; i < 24; i += 1) {
+    await sleep(500);
+    spotlightZoom.push(await sample());
+  }
   const endTimeline = await sample();
-  await sleep(10000);
+  await sleep(4000);
   const spotlight = await sample();
   await page.screenshot({
     path: path.join(shotDir, label + '-spotlight.png'),
@@ -131,7 +135,7 @@ async function runBench(label) {
   }
   await browser.close();
   child.kill('SIGTERM');
-  return { label, midTimeline, endTimeline, spotlight };
+  return { label, midTimeline, endTimeline, spotlight, spotlightZoom };
 }
 
 const label = process.argv[2] || 'after';

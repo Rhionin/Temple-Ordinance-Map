@@ -25,8 +25,8 @@ test('flicker and pop stay in a gentle visible range', () => {
   assert.ok(samples.every(v => v >= 0.7 && v <= 1.05), samples.join(','));
   assert.ok(popScale(0, false) > 1);
   assert.equal(popScale(2000, false), 1);
-  assert.equal(displaySize(false, 2000, false), DISPLAY_NORMAL);
-  assert.ok(displaySize(true, 2000, false) <= DISPLAY_BLOOM * 1.08);
+  assert.equal(displaySize(false, 1, false), DISPLAY_NORMAL);
+  assert.ok(displaySize(true, 1, false) <= DISPLAY_BLOOM * 1.08);
   assert.ok(DISPLAY_NORMAL >= 50);
   assert.ok(DISPLAY_BLOOM >= 85);
   assert.equal(SPOT_OTHER, 0.3);
@@ -58,7 +58,7 @@ test('the TV page draws lights on one canvas layer and throttles country paint',
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /L\.Renderer\.extend/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /layerDrawPoint/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /layerDrawPoint/);
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /L\.DomUtil\.setPosition\(this\._container/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /L\.DomUtil\.setPosition\(container/);
   assert.match(tv, /LightCanvas\.attachCountryRepaint/);
   assert.match(tv, /leaflet-lightsPane-pane/);
   assert.equal(LIGHTS_PANE, 'lightsPane');
