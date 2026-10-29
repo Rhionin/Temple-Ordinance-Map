@@ -6,6 +6,7 @@
     "bench:map": "node scripts/map-perf-bench.mjs after",
     "bench:visual": "node scripts/map-visual-verify.mjs",
     "bench:align": "node scripts/map-align-check.mjs",
+    "bench:glow-compare": "node scripts/glow-compare.mjs",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply temple-ordinance-map --local",

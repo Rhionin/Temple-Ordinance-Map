@@ -11,11 +11,15 @@
   const FRAME_MS = 1000 / 30;
   const LIGHTS_PANE = 'lightsPane';
   const LIGHTS_PANE_Z = 450;
-  const DISPLAY_NORMAL = 22;
-  const DISPLAY_BLOOM = 40;
-  const SPRITE = 44;
-  const DRAW_ALPHA = 0.48;
-  const BLOOM_ALPHA = 0.62;
+  // Visual match for pre-#68 .glow (14px core + CSS box-shadow halos at scale 1).
+  const CORE_PX = 14;
+  const DISPLAY_NORMAL = 58;
+  const DISPLAY_BLOOM = 96;
+  const SPRITE = 96;
+  const DRAW_ALPHA = 0.82;
+  const BLOOM_ALPHA = 1;
+  const SPOT_OTHER = 0.3;
+  const DIM_EASE_MS = 400;
 
   function flickerKeyframes(phase) {
     const p = phase % 1;
@@ -49,10 +53,62 @@
   }
 
   function displaySize(bloom, ageMs, reduced) {
-    const base = bloom ? DISPLAY_BLOOM : DISPLAY_NORMAL;
-    const scale = popScale(ageMs, reduced);
-    const cap = bloom ? DISPLAY_BLOOM * 1.08 : DISPLAY_NORMAL * 1.05;
-    return Math.min(base * scale, cap);
+    const pop = popScale(ageMs, reduced);
+    const base = (bloom ? DISPLAY_BLOOM : DISPLAY_NORMAL) * pop;
+    if (bloom) return Math.min(base * 1.05, DISPLAY_BLOOM * 6);
+    return Math.min(base, DISPLAY_NORMAL * 6);
+  }
+
+  function paintGlow(ctx, size, bloom) {
+    const r = size / 2;
+    const core = (CORE_PX / 58) * (size / 2);
+    ctx.clearRect(0, 0, size, size);
+    const g = ctx.createRadialGradient(r, r, 0, r, r, core * 1.15);
+    g.addColorStop(0, '#fff8e0');
+    g.addColorStop(0.3, '#ffcf4d');
+    g.addColorStop(0.6, '#ff8a00');
+    g.addColorStop(0.72, 'rgba(255, 138, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(r, r, core * 1.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'lighter';
+    if (bloom) {
+      ctx.shadowColor = 'rgba(255, 243, 200, 0.93)';
+      ctx.shadowBlur = 22;
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.85)';
+      ctx.beginPath();
+      ctx.arc(r, r, core * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 60;
+      ctx.shadowColor = 'rgba(255, 176, 0, 0.8)';
+      ctx.fillStyle = 'rgba(255, 154, 26, 0.55)';
+      ctx.beginPath();
+      ctx.arc(r, r, core * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = '#fff8e0';
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.arc(r, r, core * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.shadowColor = 'rgba(255, 154, 26, 0.6)';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = 'rgba(255, 154, 26, 0.55)';
+      ctx.beginPath();
+      ctx.arc(r, r, core * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 30;
+      ctx.shadowColor = 'rgba(255, 106, 0, 0.33)';
+      ctx.fillStyle = 'rgba(255, 106, 0, 0.35)';
+      ctx.beginPath();
+      ctx.arc(r, r, core * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.shadowBlur = 0;
   }
 
   function layerDrawPoint(map, bounds, lat, lon) {
@@ -60,32 +116,18 @@
     return { x: lp.x - bounds.min.x, y: lp.y - bounds.min.y };
   }
 
-  function paintGlow(ctx, size, bloom) {
-    const r = size / 2;
-    ctx.clearRect(0, 0, size, size);
-    const g = ctx.createRadialGradient(r, r, 0, r, r, r);
-    g.addColorStop(0, '#fff8e0');
-    g.addColorStop(0.3, '#ffcf4d');
-    g.addColorStop(0.6, '#ff8a00');
-    g.addColorStop(0.72, 'rgba(255, 138, 0, 0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
-    ctx.globalCompositeOperation = 'lighter';
-    const halo = bloom ? 0.75 : 0.45;
-    const spread = bloom ? 6 : 3;
-    ctx.shadowColor = bloom ? 'rgba(255, 176, 0, 0.7)' : 'rgba(255, 154, 26, 0.5)';
-    ctx.shadowBlur = spread;
-    ctx.beginPath();
-    ctx.arc(r, r, r * 0.32, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 200, 80, ' + halo + ')';
-    ctx.fill();
-    ctx.shadowBlur = bloom ? 10 : 5;
-    ctx.shadowColor = bloom ? 'rgba(255, 243, 200, 0.55)' : 'rgba(255, 106, 0, 0.28)';
-    ctx.beginPath();
-    ctx.arc(r, r, r * 0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.shadowBlur = 0;
+  function dimOthersLevel(now, state) {
+    if (!state) return 1;
+    const elapsed = now - state.at;
+    if (elapsed >= DIM_EASE_MS) return state.to;
+    const t = elapsed / DIM_EASE_MS;
+    const ease = t * (2 - t);
+    return state.from + (state.to - state.from) * ease;
+  }
+
+  function beginDimEase(state, target, now) {
+    const from = state.active ? dimOthersLevel(now, state.active) : 1;
+    state.active = { from: from, to: target, at: now };
   }
 
   function makeSprites(doc) {
@@ -145,6 +187,8 @@
     const sprites = makeSprites(document);
     const lights = new Map();
     let bloomKey = null;
+    const dimState = { active: null };
+    let spotlightDim = false;
     let raf = 0;
     let lastDraw = 0;
     let running = false;
@@ -254,7 +298,10 @@
           const bloom = bloomKey === entry.key;
           const w = displaySize(bloom, age, reduced);
           const tone = bloom ? BLOOM_ALPHA : DRAW_ALPHA;
-          const alpha = flick * fade * tone;
+          const dim = spotlightDim && bloomKey && !bloom
+            ? dimOthersLevel(now, dimState.active)
+            : 1;
+          const alpha = flick * fade * tone * dim;
           if (alpha <= 0.01 || w <= 0.5) continue;
           const sprite = bloom ? sprites.bloom : sprites.normal;
           this._ctx.globalAlpha = alpha;
@@ -340,10 +387,19 @@
       clear() {
         lights.clear();
         bloomKey = null;
+        spotlightDim = false;
+        dimState.active = null;
         if (renderer) renderer._updatePaths();
       },
       setBloom(key) {
         bloomKey = key || null;
+        if (renderer) renderer._updatePaths();
+      },
+      setSpotlight(key) {
+        const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+        bloomKey = key || null;
+        spotlightDim = !!key;
+        beginDimEase(dimState, key ? SPOT_OTHER : 1, now);
         if (renderer) renderer._updatePaths();
       },
       fadeAll() {
@@ -382,6 +438,9 @@
     DISPLAY_NORMAL: DISPLAY_NORMAL,
     DISPLAY_BLOOM: DISPLAY_BLOOM,
     SPRITE: SPRITE,
+    SPOT_OTHER: SPOT_OTHER,
+    DIM_EASE_MS: DIM_EASE_MS,
+    dimOthersLevel: dimOthersLevel,
     flickerOpacity: flickerOpacity,
     popScale: popScale,
     fadeOpacity: fadeOpacity,
