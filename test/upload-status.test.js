@@ -54,7 +54,8 @@ test('the upload and TV pages expose the success card and the spotlight', () => 
   const tv = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
   assert.match(tv, /spotlight\.js/);
   assert.match(tv, /id="card"/);
-  assert.match(tv, /flick 2\.4s/);
+  assert.match(tv, /light-canvas\.js/);
+  assert.match(tv, /LightCanvas\.createLayer/);
   assert.match(tv, /<html lang="en">/);
   assert.match(tv, /<title>Temple Ordinance Lights<\/title>/);
   assert.match(tv, /Light a candle for our ancestors/);

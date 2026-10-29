@@ -40,7 +40,8 @@
     if (!entries) return 0;
     let n = 0;
     for (const entry of entries) {
-      if (entry && entry.marker) n += 1;
+      if (!entry) continue;
+      if (entry.marker || entry.shown) n += 1;
     }
     return n;
   }

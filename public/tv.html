@@ -6,36 +6,30 @@ html,body{margin:0;height:100%;height:100svh;height:100dvh;overflow:hidden;backg
 #vv-probe{position:fixed;left:0;top:0;width:100%;width:100vw;height:100%;height:100vh;height:100svh;height:100dvh;visibility:hidden;pointer-events:none}
 #stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform:translate(-50%,-50%) rotate(var(--turn,0deg)) scale(var(--fit,1));transform-origin:center center;background:#07040c}
 #map{position:absolute;left:0;top:0;width:var(--map-w,1420px);height:1080px;background:#07040c;visibility:hidden}
-#rail{position:absolute;top:0;right:0;width:var(--rail,500px);height:1080px;z-index:1000;background:#07040c;border-left:1px solid rgba(255,196,120,.28);pointer-events:none}
+.leaflet-light-canvas{pointer-events:none}
+#rail{position:absolute;top:0;right:0;width:var(--rail,500px);height:1080px;z-index:1000;background:#07040c;border-left:1px solid rgba(255,196,120,.28);pointer-events:none;contain:layout paint;isolation:isolate}
 .leaflet-container{background:#07040c}
 .leaflet-div-icon,.candle-icon{background:transparent;border:none}
-#hud{position:fixed;top:28px;left:36px;z-index:999;max-width:calc(var(--map-w, 1420px) - 80px);color:#ffd08a;text-shadow:0 0 14px #ff7a00}
+#hud{position:fixed;top:28px;left:36px;z-index:999;max-width:calc(var(--map-w, 1420px) - 80px);color:#ffd08a;text-shadow:0 0 14px #ff7a00;contain:layout paint;isolation:isolate}
 #hud h1{margin:0;font-size:40px;line-height:1.2;font-weight:normal;color:#ffa31a;white-space:nowrap}
 #ticker{position:fixed;bottom:0;left:0;right:var(--rail,500px);z-index:999;padding:14px 32px;font-size:28px;color:#ffd08a;background:linear-gradient(transparent,#07040cdd);text-shadow:0 0 10px #ff7a00}
-.glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(#fff8e0 0,#ffcf4d 30%,#ff8a00 60%,transparent 72%);
-box-shadow:0 0 12px 5px #ff9a1a99,0 0 30px 12px #ff6a0055;animation:pop 1.6s ease-out,flick 2.4s infinite alternate}
-.glow.bloom{filter:brightness(1.45);box-shadow:0 0 22px 14px #fff3c8ee,0 0 60px 28px #ffb000cc}
-.glow.out{animation:fadeout 1.6s ease forwards}
-@keyframes pop{0%{transform:scale(6);opacity:0}60%{transform:scale(1.6);opacity:1}100%{transform:scale(1)}}
-@keyframes flick{0%{opacity:.75}25%{opacity:1}50%{opacity:.85}70%{opacity:.98}100%{opacity:.8}}
-@keyframes fadeout{to{opacity:0;filter:brightness(.4)}}
 #timeline{position:fixed;left:0;right:var(--rail,500px);bottom:0;z-index:1002;padding:8px 6% 28px;text-align:center;pointer-events:none;
-background:linear-gradient(transparent,#07040cf2)}
+background:linear-gradient(transparent,#07040cf2);contain:layout paint;isolation:isolate}
 #month-label{margin:0;font-size:64px;font-weight:normal;color:#fff6e4;text-shadow:0 0 18px #ff7a00,0 2px 8px #000}
 #progress{margin:14px auto 0;height:4px;width:min(640px,72%);background:rgba(255,255,255,.16);border-radius:4px;overflow:hidden}
 #progress-bar{height:100%;width:0;background:linear-gradient(90deg,#ffb347,#fff1c9);box-shadow:0 0 12px #ff9a1a}
 #card{position:absolute;left:28px;right:24px;bottom:32px;z-index:2;width:auto;padding:14px 20px 12px;color:#fff6e4;
-background:linear-gradient(165deg,rgba(62,36,18,.9),rgba(18,10,24,.84));border:1px solid rgba(255,196,120,.45);border-radius:22px;
-box-shadow:0 20px 50px rgba(0,0,0,.4),0 0 40px rgba(255,140,40,.16);backdrop-filter:blur(10px);
-opacity:0;transform:translateY(12px);pointer-events:none;overflow:hidden;transition:opacity .8s ease,transform .8s ease}
+background:linear-gradient(165deg,rgba(62,36,18,.94),rgba(18,10,24,.9));border:1px solid rgba(255,196,120,.45);border-radius:22px;
+box-shadow:0 20px 50px rgba(0,0,0,.4),0 0 40px rgba(255,140,40,.16);
+opacity:0;transform:translateY(12px);pointer-events:none;overflow:hidden;transition:opacity .8s ease,transform .8s ease;contain:layout paint;isolation:isolate}
 #card.show{opacity:1;transform:none}
 #card .kicker{margin:0;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#e7b56a}
 #card h2{margin:4px 0;font-size:26px;font-weight:normal;line-height:1.2;color:#fff1d4;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 #card .ord{margin:0;font-size:18px;line-height:1.3;color:#ffd08a;text-shadow:0 0 12px #ff7a0066;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 #card .region{margin:8px 0 0;font-size:14px;color:#d9c4ae;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #stats{position:absolute;top:72px;left:28px;right:24px;z-index:1;width:auto;padding:16px 22px 12px;color:#fff6e4;
-background:linear-gradient(160deg,rgba(32,18,48,.78),rgba(7,4,12,.62));border:1px solid rgba(255,196,120,.35);border-radius:20px;
-box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
+background:linear-gradient(160deg,rgba(32,18,48,.88),rgba(7,4,12,.82));border:1px solid rgba(255,196,120,.35);border-radius:20px;
+box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none;contain:layout paint;isolation:isolate}
 #stats .stat{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:2px 0}
 #stat-sharers-row[hidden]{display:none !important}
 #stats .stat b{font-size:64px;line-height:.95;color:#fff3d6;font-weight:bold;text-shadow:0 0 16px #ff9a1a88}
@@ -46,7 +40,7 @@ box-shadow:0 12px 40px rgba(0,0,0,.35);pointer-events:none}
 #stat-ordinances span{font-size:24px;color:#ffd08a}
 #stat-ordinances li.total{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,196,120,.3)}
 .leaflet-control-attribution{background:#0008!important;color:#776!important}.leaflet-control-attribution a{color:#998!important}
-#qr-badge{position:absolute;left:28px;right:24px;z-index:1;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:10px 12px 8px;background:#fff4dc;color:#4a2410;font-family:Georgia,serif;border:2px solid #ffc478;border-radius:20px;box-shadow:0 0 22px rgba(255,154,26,.55),0 10px 28px rgba(0,0,0,.28);pointer-events:none;text-align:center;overflow:hidden;text-size-adjust:100%;-webkit-text-size-adjust:100%}
+#qr-badge{position:absolute;left:28px;right:24px;z-index:1;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:10px 12px 8px;background:#fff4dc;color:#4a2410;font-family:Georgia,serif;border:2px solid #ffc478;border-radius:20px;box-shadow:0 0 22px rgba(255,154,26,.55),0 10px 28px rgba(0,0,0,.28);pointer-events:none;text-align:center;overflow:hidden;text-size-adjust:100%;-webkit-text-size-adjust:100%;contain:layout paint;isolation:isolate}
 #qr-badge[hidden]{display:none !important}
 #qr-code{width:180px;height:180px;flex:0 0 auto}
 #qr-code svg{display:block;width:100%;height:100%}
@@ -61,7 +55,6 @@ background:transparent;color:#ffd08a;font:18px/36px Georgia,serif;opacity:0;curs
 font:10px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;color:#c8b496;
 background:rgba(7,4,12,.72);border-radius:4px;pointer-events:none;white-space:pre;overflow:hidden}
 @media (prefers-reduced-motion:reduce){
-  .glow,.glow.bloom{animation:none}
   #card{transition:none}
 }
 </style></head><body>
@@ -107,6 +100,7 @@ background:rgba(7,4,12,.72);border-radius:4px;pointer-events:none;white-space:pr
 <script src="/country-at.js"></script>
 <script src="/visible-totals.js"></script>
 <script src="/version.js"></script>
+<script src="/light-canvas.js"></script>
 <script src="/spotlight.js"></script>
 <script src="/timeline.js"></script>
 <script src="/show.js"></script>
@@ -234,13 +228,17 @@ function localPointer(event, element) {
     return L.point(point.x, point.y);
   };
 })();
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const map = L.map('map', { zoomControl: false, worldCopyJump: true, zoomSnap: 0, renderer: L.svg({ padding: 0.8 }) }).setView(WORLD.center, WORLD.zoom);
 map.getContainer().style.visibility = 'hidden';
+const lightCanvas = typeof LightCanvas !== 'undefined'
+  ? LightCanvas.createLayer(map, { reducedMotion: reduceMotion })
+  : null;
 // Leaflet's SVG renderer only redraws paths on moveend. During flyTo it CSS-scales
 // the previous viewport, so the destination is blank until the flight ends.
 function paintCountriesDuringMove() {
   const renderer = map.getRenderer(map);
-  map.on('move', () => {
+  function repaintCountries() {
     if (!renderer || renderer._busy || !renderer._layers) return;
     renderer._busy = true;
     try {
@@ -251,7 +249,9 @@ function paintCountriesDuringMove() {
       if (typeof renderer._update === 'function') renderer._update();
     } catch (error) { /* the next frame draws again */ }
     finally { renderer._busy = false; }
-  });
+  }
+  if (typeof LightCanvas !== 'undefined') LightCanvas.attachCountryRepaint(map, repaintCountries);
+  else map.on('move', repaintCountries);
 }
 paintCountriesDuringMove();
 let countryAt = function () { return null; };
@@ -303,7 +303,6 @@ let showStarted = 0;
 let pinnedBox = null;
 let timelineWide = false;
 let cameraToken = 0;
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function flyOpts() {
   return { animate: !reduceMotion, duration: reduceMotion ? 0.01 : 2.8, easeLinearity: 0.25 };
@@ -313,7 +312,7 @@ function noteSince(light) {
   if (stamp > since) since = stamp;
 }
 function paint(entry) {
-  if (entry.marker) return;
+  if (entry.shown) return;
   const light = entry.light;
   const coordKey = Number(light.lat).toFixed(3) + ',' + Number(light.lon).toFixed(3);
   let lat = Number(light.lat);
@@ -323,29 +322,25 @@ function paint(entry) {
     lon += (Math.random() - 0.5) * 0.3;
   }
   spots.add(coordKey);
-  const icon = L.divIcon({
-    className: 'candle-icon',
-    html: '<div class="glow" style="animation-delay:0s,' + (Math.random() * 2).toFixed(2) + 's"></div>',
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  });
-  entry.marker = L.marker([lat, lon], { icon: icon, interactive: false }).addTo(map);
-  const root = entry.marker.getElement();
-  entry.el = root ? root.querySelector('.glow') : null;
-  if (entry.el && bloomKey === entry.key) entry.el.classList.add('bloom');
+  entry.lat = lat;
+  entry.lon = lon;
+  entry.shown = true;
+  if (lightCanvas) lightCanvas.upsert(entry.key, lat, lon);
+  if (bloomKey === entry.key && lightCanvas) lightCanvas.setBloom(entry.key);
 }
 function present(light, delay) {
   const key = Spotlight.lightKey(light);
   const existing = markers.get(key);
   if (existing) {
     existing.light = light;
-    if (!existing.marker) {
+    if (!existing.shown) {
       clearTimeout(existing.timer);
-      paint(existing);
+      if (delay > 0) existing.timer = setTimeout(() => paint(existing), delay);
+      else paint(existing);
     }
     return existing;
   }
-  const entry = { key, light, el: null, marker: null, timer: 0 };
+  const entry = { key, light, lat: 0, lon: 0, shown: false, timer: 0 };
   markers.set(key, entry);
   if (delay > 0) entry.timer = setTimeout(() => paint(entry), delay);
   else paint(entry);
@@ -359,17 +354,15 @@ function showTimelineChrome(on) {
   ticker.hidden = on;
 }
 function clearMarkers() {
-  for (const entry of markers.values()) {
-    clearTimeout(entry.timer);
-    if (entry.marker) map.removeLayer(entry.marker);
-  }
+  for (const entry of markers.values()) clearTimeout(entry.timer);
   markers.clear();
   spots.clear();
+  if (lightCanvas) lightCanvas.clear();
   setBloom(null);
   paintTotals();
 }
 function fadeMarkers() {
-  for (const entry of markers.values()) if (entry.el) entry.el.classList.add('out');
+  if (lightCanvas) lightCanvas.fadeAll();
 }
 function revealedLights() {
   return [...markers.values()].map(entry => entry.light);
@@ -504,7 +497,7 @@ function expandTimelineCamera(lights) {
 function applyTimelineEvent(event) {
   if (event.type === 'frame') {
     playhead = event.index;
-    monthLabel.textContent = event.label;
+    if (monthLabel.textContent !== event.label) monthLabel.textContent = event.label;
     revealMissed();
     const scripted = new Set((event.lights || []).map(light => Spotlight.lightKey(light)));
     for (const light of catalog.values()) {
@@ -515,7 +508,7 @@ function applyTimelineEvent(event) {
     revealLight(event.light);
   } else if (event.type === 'hold') {
     playhead = 99;
-    monthLabel.textContent = 'This year';
+    if (monthLabel.textContent !== 'This year') monthLabel.textContent = 'This year';
     timelineWide = true;
     revealMissed();
     paintTotals();
@@ -617,14 +610,8 @@ function startSpotlight() {
   timer = setTimeout(runStep, lights.length ? 900 : 400);
 }
 function setBloom(key) {
-  if (bloomKey && bloomKey !== key) {
-    const prev = markers.get(bloomKey);
-    if (prev && prev.el) prev.el.classList.remove('bloom');
-  }
-  bloomKey = key;
-  if (!key) return;
-  const entry = markers.get(key);
-  if (entry && entry.el) entry.el.classList.add('bloom');
+  bloomKey = key || null;
+  if (lightCanvas) lightCanvas.setBloom(bloomKey);
 }
 function showCard(light, pool) {
   const caption = Spotlight.captionFor(light, pool || rotation.all());
@@ -642,7 +629,7 @@ function hideCard() {
 }
 function focusOf(light) {
   const entry = markers.get(Spotlight.lightKey(light));
-  if (entry && entry.marker) return entry.marker.getLatLng();
+  if (entry && entry.shown) return [entry.lat, entry.lon];
   return [Number(light.lat), Number(light.lon)];
 }
 const versions = Version.watch({
@@ -722,17 +709,21 @@ function rememberLight(light) {
   noteSince(light);
 }
 let serverStats = null;
+function setStatText(el, value) {
+  if (!el) return;
+  const text = String(value);
+  if (el.textContent !== text) el.textContent = text;
+}
 function paintBody(body) {
-  document.getElementById('stat-ancestors').textContent = String((body && body.ancestors) || 0);
-  document.getElementById('stat-countries').textContent = String((body && body.countries) || 0);
-  document.getElementById('stat-sharers').textContent = String((body && body.sharers) || 0);
+  setStatText(document.getElementById('stat-ancestors'), (body && body.ancestors) || 0);
+  setStatText(document.getElementById('stat-countries'), (body && body.countries) || 0);
+  setStatText(document.getElementById('stat-sharers'), (body && body.sharers) || 0);
   const counts = (body && body.ordinances) || {};
   for (const name of VisibleTotals.ORDINANCES) {
     const el = document.querySelector('#stat-ordinances [data-name="' + name + '"]');
-    if (el) el.textContent = String(counts[name] || 0);
+    setStatText(el, counts[name] || 0);
   }
-  const totalEl = document.getElementById('stat-ordinance-total');
-  if (totalEl) totalEl.textContent = String(VisibleTotals.ordinanceTotal(counts));
+  setStatText(document.getElementById('stat-ordinance-total'), VisibleTotals.ordinanceTotal(counts));
 }
 function paintTotals() {
   const sharersRow = document.getElementById('stat-sharers-row');
