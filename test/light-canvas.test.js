@@ -14,6 +14,7 @@ const {
   DISPLAY_BLOOM,
   LIGHTS_PANE,
   LIGHTS_PANE_Z,
+  SPOT_OTHER,
 } = require('../public/light-canvas');
 
 test('flicker and pop stay in a gentle visible range', () => {
@@ -26,8 +27,9 @@ test('flicker and pop stay in a gentle visible range', () => {
   assert.equal(popScale(2000, false), 1);
   assert.equal(displaySize(false, 2000, false), DISPLAY_NORMAL);
   assert.ok(displaySize(true, 2000, false) <= DISPLAY_BLOOM * 1.08);
-  assert.ok(DISPLAY_NORMAL <= 24);
-  assert.ok(DISPLAY_BLOOM <= 44);
+  assert.ok(DISPLAY_NORMAL >= 50);
+  assert.ok(DISPLAY_BLOOM >= 85);
+  assert.equal(SPOT_OTHER, 0.3);
   assert.equal(fadeOpacity(null, 1000, false), 1);
   assert.ok(fadeOpacity(0, 900, false) < 0.5);
   assert.equal(fadeOpacity(0, 2000, false), 0);

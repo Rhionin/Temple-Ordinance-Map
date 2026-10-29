@@ -203,7 +203,7 @@ function eventAt(event, point) {
   });
 }
 const WORLD = { center: [25, 0], zoom: 2.4 };
-const SPOT_ZOOM = 4.8;
+const SPOT_ZOOM = 6.5;
 const DWELL_MS = 9000;
 function localPointer(event, element) {
   const src = pointerOf(event);
@@ -615,7 +615,13 @@ function startSpotlight() {
 }
 function setBloom(key) {
   bloomKey = key || null;
-  if (lightCanvas) lightCanvas.setBloom(bloomKey);
+  if (!lightCanvas) return;
+  if (act === 'spotlight') {
+    if (key) lightCanvas.setSpotlight(key);
+    else lightCanvas.setSpotlight(null);
+    return;
+  }
+  lightCanvas.setBloom(bloomKey);
 }
 function showCard(light, pool) {
   const caption = Spotlight.captionFor(light, pool || rotation.all());
