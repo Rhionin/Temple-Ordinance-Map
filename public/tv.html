@@ -288,6 +288,31 @@ const catalog = new Map();
 let since = 0;
 let ready = false;
 let polling = false;
+const POLL_MS = 45000;
+const POLL_JITTER_MS = 15000;
+let pollDelayMs = POLL_MS;
+let pollFailStreak = 0;
+let pollTimer = 0;
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  if (document.hidden) return;
+  const wait = pollDelayMs + Math.floor(Math.random() * POLL_JITTER_MS);
+  pollTimer = setTimeout(async () => {
+    await poll();
+    schedulePoll();
+  }, wait);
+}
+function notePollFailure() {
+  pollFailStreak += 1;
+  pollDelayMs = Math.min(POLL_MS * (2 ** pollFailStreak), 120000);
+}
+function notePollSuccess() {
+  pollFailStreak = 0;
+  pollDelayMs = POLL_MS;
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) schedulePoll();
+});
 let mapEpoch = 0;
 let bloomKey = null;
 let currentKey = null;
@@ -786,10 +811,14 @@ async function loadGroupHeading() {
 async function refreshStats() {
   try {
     const response = await fetch(mapApi('/stats'), { cache: 'no-store' });
-    if (!response.ok) return;
+    if (!response.ok) {
+      notePollFailure();
+      return;
+    }
+    notePollSuccess();
     serverStats = await response.json();
     paintTotals();
-  } catch (error) { /* the next poll retries */ }
+  } catch (error) { notePollFailure(); }
 }
 async function poll() {
   if (polling) return;
@@ -798,6 +827,11 @@ async function poll() {
   const statsTask = refreshStats();
   try {
     const response = await fetch(mapApi('/lights?since=' + since), { cache: 'no-store' });
+    if (!response.ok) {
+      notePollFailure();
+      return;
+    }
+    notePollSuccess();
     const rows = await response.json();
     if (epoch !== mapEpoch) return;
     if (!Array.isArray(rows)) return;
@@ -842,7 +876,7 @@ async function poll() {
       }
     }
     if (arrived) wake();
-  } catch (error) { /* keep the map up; the next poll retries */ }
+  } catch (error) { notePollFailure(); }
   finally { polling = false; await statsTask; }
 }
 const RESET_PIN = '1337';
@@ -900,7 +934,7 @@ resetBtn.addEventListener('click', async () => {
 });
 const groupReady = loadGroupHeading();
 poll();
-setInterval(poll, 2000);
+schedulePoll();
 // ?fps=1 opts into the corner meter. Any other URL leaves the map untouched.
 if (params.get('fps') === '1' && typeof PerfOverlay !== 'undefined') {
   PerfOverlay.install({

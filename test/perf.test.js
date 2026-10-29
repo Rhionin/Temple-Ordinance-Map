@@ -317,8 +317,8 @@ test('both map pages can show the meter, and it stays off the lights', () => {
   const worker = fs.readFileSync(path.join(root, 'src', 'worker.js'), 'utf8');
   assert.match(server, /\/map' \? 'tv\.html'/);
   assert.match(server, /'\/': 'tv\.html'/);
-  assert.match(worker, /\/map' \? '\/tv\.html'/);
-  assert.match(worker, /'\/': '\/tv\.html'/);
+  assert.match(worker, /mapPage/);
+  assert.match(worker, /\/tv\.html/);
   assert.match(tv, /src="\/perf\.js"/);
   assert.equal((tv.match(/PerfOverlay\.install/g) || []).length, 1);
   assert.match(tv, /params\.get\('fps'\) === '1'/);

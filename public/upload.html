@@ -133,7 +133,7 @@ function watchProgress(since,view){
   else if(stalled) clearInterval(pollTimer);
  };
  tick();
- pollTimer=setInterval(tick,2000);
+ pollTimer=setInterval(tick,12000);
 }
 function sharerId(){
  try{

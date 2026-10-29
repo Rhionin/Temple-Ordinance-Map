@@ -1,6 +1,14 @@
 // Group rows in D1. Lights stay in d1Store, one group at a time.
 import { d1Store } from './d1.js';
 import { normalizeSlug, cleanText, creationBlock, CREATE_WINDOW_MS } from '../lib/groups.js';
+import {
+  cachedGroupRow,
+  rememberGroupRow,
+  staleGroupRow,
+  invalidateGroupPoll,
+  invalidateMasterPoll,
+  invalidateGroupSlug,
+} from '../lib/poll-cache.js';
 
 function taken() {
   const error = new Error('that address is already taken');
@@ -16,11 +24,18 @@ export function directory(db) {
     async find(slug) {
       const key = normalizeSlug(slug);
       if (!key) return null;
-      return db.prepare(
+      const cached = cachedGroupRow(key);
+      if (cached) return cached;
+      const row = await db.prepare(
         `SELECT id, slug, title, subtitle, months, uploads_open, uploads_close,
                 admin_token_hash, disabled, deleted, created
          FROM groups WHERE slug = ?`
       ).bind(key).first();
+      if (row) rememberGroupRow(key, row);
+      return row;
+    },
+    findStale(slug) {
+      return staleGroupRow(normalizeSlug(slug));
     },
     async create({ slug, title, subtitle, tokenHash, now }) {
       const key = normalizeSlug(slug);
@@ -50,6 +65,7 @@ export function directory(db) {
         if (/unique/i.test(String(error && error.message))) throw taken();
         throw error;
       }
+      invalidateMasterPoll();
       return this.find(key);
     },
     async update(slug, fields) {
@@ -60,12 +76,17 @@ export function directory(db) {
          SET title = ?, subtitle = ?, months = ?, uploads_open = ?, uploads_close = ?
          WHERE id = ?`
       ).bind(fields.title, fields.subtitle, fields.months, fields.uploadsOpen, fields.uploadsClose, current.id).run();
+      invalidateGroupPoll(current.id);
+      invalidateGroupSlug(slug);
       return this.find(slug);
     },
     async remove(slug) {
       const current = await this.find(slug);
       if (!current || Number(current.deleted)) return false;
       await db.prepare('UPDATE groups SET deleted = 1 WHERE id = ?').bind(current.id).run();
+      invalidateGroupPoll(current.id);
+      invalidateGroupSlug(slug);
+      invalidateMasterPoll();
       return true;
     },
     async list() {
@@ -78,13 +99,18 @@ export function directory(db) {
       const current = await this.find(slug);
       if (!current) return null;
       await db.prepare('UPDATE groups SET disabled = ? WHERE id = ?').bind(disabled ? 1 : 0, current.id).run();
+      invalidateGroupPoll(current.id);
+      invalidateGroupSlug(slug);
+      invalidateMasterPoll();
       return this.find(slug);
     },
     async replaceToken(slug, tokenHash) {
       const current = await this.find(slug);
       if (!current || Number(current.deleted) || Number(current.disabled)) return false;
       await db.prepare('UPDATE groups SET admin_token_hash = ? WHERE id = ?').bind(tokenHash, current.id).run();
-      return true;
+      invalidateGroupPoll(current.id);
+      invalidateGroupSlug(slug);
+      return this.find(slug);
     },
   };
 }
