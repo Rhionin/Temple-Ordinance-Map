@@ -9,7 +9,14 @@
   const FADE_MS = 1600;
   const MOVE_PAINT_MS = 100;
   const FRAME_MS = 1000 / 30;
-  const SPRITE = 96;
+  const LIGHTS_PANE = 'lightsPane';
+  const LIGHTS_PANE_Z = 450;
+  // Match the old 14px divIcon; halo fits in ~22 CSS px (shadows were ~12–30px).
+  const DISPLAY_NORMAL = 22;
+  const DISPLAY_BLOOM = 40;
+  const SPRITE = 44;
+  const DRAW_ALPHA = 0.48;
+  const BLOOM_ALPHA = 0.62;
 
   function flickerKeyframes(phase) {
     const p = phase % 1;
@@ -42,6 +49,13 @@
     return 1 - age / FADE_MS;
   }
 
+  function displaySize(bloom, ageMs, reduced) {
+    const base = bloom ? DISPLAY_BLOOM : DISPLAY_NORMAL;
+    const scale = popScale(ageMs, reduced);
+    const cap = bloom ? DISPLAY_BLOOM * 1.08 : DISPLAY_NORMAL * 1.05;
+    return Math.min(base * scale, cap);
+  }
+
   function paintGlow(ctx, size, bloom) {
     const r = size / 2;
     ctx.clearRect(0, 0, size, size);
@@ -53,18 +67,18 @@
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
     ctx.globalCompositeOperation = 'lighter';
-    const halo = bloom ? 0.92 : 0.55;
-    const spread = bloom ? 28 : 12;
-    ctx.shadowColor = bloom ? 'rgba(255, 176, 0, 0.85)' : 'rgba(255, 154, 26, 0.6)';
+    const halo = bloom ? 0.75 : 0.45;
+    const spread = bloom ? 6 : 3;
+    ctx.shadowColor = bloom ? 'rgba(255, 176, 0, 0.7)' : 'rgba(255, 154, 26, 0.5)';
     ctx.shadowBlur = spread;
     ctx.beginPath();
-    ctx.arc(r, r, r * 0.34, 0, Math.PI * 2);
+    ctx.arc(r, r, r * 0.32, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255, 200, 80, ' + halo + ')';
     ctx.fill();
-    ctx.shadowBlur = bloom ? 48 : 24;
-    ctx.shadowColor = bloom ? 'rgba(255, 243, 200, 0.75)' : 'rgba(255, 106, 0, 0.35)';
+    ctx.shadowBlur = bloom ? 10 : 5;
+    ctx.shadowColor = bloom ? 'rgba(255, 243, 200, 0.55)' : 'rgba(255, 106, 0, 0.28)';
     ctx.beginPath();
-    ctx.arc(r, r, r * 0.22, 0, Math.PI * 2);
+    ctx.arc(r, r, r * 0.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
     ctx.shadowBlur = 0;
@@ -78,6 +92,15 @@
     paintGlow(normal.getContext('2d'), SPRITE, false);
     paintGlow(bloom.getContext('2d'), SPRITE, true);
     return { normal: normal, bloom: bloom };
+  }
+
+  function ensureLightsPane(map) {
+    if (map.getPane(LIGHTS_PANE)) return map.getPane(LIGHTS_PANE);
+    map.createPane(LIGHTS_PANE);
+    const pane = map.getPane(LIGHTS_PANE);
+    pane.style.zIndex = String(LIGHTS_PANE_Z);
+    pane.style.pointerEvents = 'none';
+    return pane;
   }
 
   function throttle(fn, waitMs) {
@@ -123,16 +146,17 @@
     let raf = 0;
     let lastDraw = 0;
     let running = false;
+    let dpr = 1;
 
     function resize() {
       if (!canvas || !map.getSize) return;
       const size = map.getSize();
-      const dpr = window.devicePixelRatio || 1;
+      dpr = window.devicePixelRatio || 1;
       canvas.width = Math.max(1, Math.floor(size.x * dpr));
       canvas.height = Math.max(1, Math.floor(size.y * dpr));
       canvas.style.width = size.x + 'px';
       canvas.style.height = size.y + 'px';
-      if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (ctx) ctx.setTransform(1, 0, 0, 1, 0, 0);
       draw(true);
     }
 
@@ -142,26 +166,29 @@
       if (!force && !reduced && now - lastDraw < FRAME_MS && !map._animatingZoom) return;
       lastDraw = now;
       const size = map.getSize();
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size.x, size.y);
-      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalCompositeOperation = 'screen';
+      const pad = DISPLAY_BLOOM * 6;
       for (const entry of lights.values()) {
         if (!entry.visible) continue;
         const point = map.latLngToContainerPoint([entry.lat, entry.lon]);
-        if (point.x < -SPRITE || point.y < -SPRITE || point.x > size.x + SPRITE || point.y > size.y + SPRITE) continue;
+        if (point.x < -pad || point.y < -pad || point.x > size.x + pad || point.y > size.y + pad) continue;
         const age = now - entry.addedAt;
         const pop = popScale(age, reduced);
         const flick = flickerOpacity(entry.seed, now, reduced);
         const fade = fadeOpacity(entry.fadeAt, now, reduced);
-        const alpha = flick * fade;
-        if (alpha <= 0.01) continue;
         const bloom = bloomKey === entry.key;
+        const w = displaySize(bloom, age, reduced);
+        const tone = bloom ? BLOOM_ALPHA : DRAW_ALPHA;
+        const alpha = flick * fade * tone;
+        if (alpha <= 0.01 || w <= 0.5) continue;
         const sprite = bloom ? sprites.bloom : sprites.normal;
-        const scale = pop * (bloom ? 1.12 : 1);
-        const w = SPRITE * scale;
-        const h = SPRITE * scale;
         ctx.globalAlpha = alpha;
-        ctx.drawImage(sprite, point.x - w / 2, point.y - h / 2, w, h);
+        ctx.drawImage(sprite, point.x - w / 2, point.y - w / 2, w, w);
       }
+      ctx.restore();
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
     }
@@ -188,10 +215,11 @@
 
     const Layer = L.Layer.extend({
       onAdd() {
+        ensureLightsPane(map);
         canvas = L.DomUtil.create('canvas', 'leaflet-light-canvas');
         canvas.style.pointerEvents = 'none';
-        const pane = map.getPane('overlayPane');
-        pane.appendChild(canvas);
+        canvas.style.zIndex = String(LIGHTS_PANE_Z);
+        map.getPane(LIGHTS_PANE).appendChild(canvas);
         ctx = canvas.getContext('2d', { alpha: true });
         resize();
         map.on('move', this._redraw, this);
@@ -286,10 +314,17 @@
     FADE_MS: FADE_MS,
     MOVE_PAINT_MS: MOVE_PAINT_MS,
     FRAME_MS: FRAME_MS,
+    LIGHTS_PANE: LIGHTS_PANE,
+    LIGHTS_PANE_Z: LIGHTS_PANE_Z,
+    DISPLAY_NORMAL: DISPLAY_NORMAL,
+    DISPLAY_BLOOM: DISPLAY_BLOOM,
+    SPRITE: SPRITE,
     flickerOpacity: flickerOpacity,
     popScale: popScale,
     fadeOpacity: fadeOpacity,
+    displaySize: displaySize,
     paintGlow: paintGlow,
+    ensureLightsPane: ensureLightsPane,
     throttle: throttle,
     attachCountryRepaint: attachCountryRepaint,
     createLayer: createLayer,
