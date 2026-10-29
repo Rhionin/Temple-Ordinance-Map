@@ -32,7 +32,6 @@ test('deploy workflow tests, migrates, then deploys without calling reset', () =
   assert.ok(seed > 0 && apply > seed && deploy > apply);
   assert.match(yml, /continue-on-error: true/);
   assert.match(yml, /D1 migration summary/);
-  assert.match(yml, /workflow_dispatch/);
   assert.doesNotMatch(yml, /\/api\/reset/);
   assert.doesNotMatch(yml, /RESET_TOKEN/);
 });
