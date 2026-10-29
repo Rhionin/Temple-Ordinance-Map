@@ -26,9 +26,29 @@ jobs:
       - run: node --test test/
       - run: npm ci
       - name: Seed D1 migration history
+        id: d1_seed
+        continue-on-error: true
         run: node scripts/prepare-d1-migrations.js
       - name: Apply D1 migrations
+        id: d1_migrate
+        continue-on-error: true
         run: npx wrangler d1 migrations apply temple-ordinance-map --remote
+      - name: D1 migration summary
+        if: always()
+        run: |
+          seed_ok="${{ steps.d1_seed.outcome }}"
+          migrate_ok="${{ steps.d1_migrate.outcome }}"
+          if [ "$seed_ok" = "success" ] && [ "$migrate_ok" = "success" ]; then
+            echo "D1 migration seed and apply both succeeded."
+            exit 0
+          fi
+          echo "::warning title=D1 migrations skipped or failed::Seed outcome=$seed_ok, apply outcome=$migrate_ok. Common cause: D1 free-tier daily read limit (resets 00:00 UTC). Worker deploy continues; poll-cache (#75) does not require migration 0007 indexes. Re-run this workflow with workflow_dispatch after quota resets to apply pending migrations."
+          if [ "$seed_ok" != "success" ]; then
+            echo "Seed step log: see step 'Seed D1 migration history' above."
+          fi
+          if [ "$migrate_ok" != "success" ]; then
+            echo "Apply step log: see step 'Apply D1 migrations' above."
+          fi
       - name: Deploy Worker
         run: |
           attempt=1
