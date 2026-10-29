@@ -6,6 +6,10 @@ a{color:#ffc04d}.step{background:#21132e;border:1px solid #5a2d6e;border-radius:
 .n{position:absolute;top:-12px;left:-6px;width:34px;height:34px;border-radius:50%;background:#ff9a1a;color:#2a0f00;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:1.1em;box-shadow:0 0 12px #ff7a00}
 .step h2{margin:0 0 6px 22px;font-size:1.15em;color:#ffd08a}.step p,.step li{line-height:1.45;margin:.35em 0}
 .btn{display:block;text-align:center;background:linear-gradient(#ffb33a,#f07d00);color:#2a0f00;font-weight:700;padding:15px;border-radius:12px;font-size:1.05em;text-decoration:none;border:0;width:100%;box-sizing:border-box;cursor:pointer;margin:8px 0}
+.btn-secondary{display:inline-block;width:auto;max-width:100%;padding:11px 18px;margin:0 0 12px;font-size:1em;font-weight:700;color:#ffd08a;text-decoration:none;border:1px solid rgba(255,196,120,.55);border-radius:999px;background:linear-gradient(165deg,rgba(62,36,18,.55),rgba(33,19,46,.72));box-shadow:0 0 16px rgba(255,122,0,.22);box-sizing:border-box}
+.btn-secondary:hover,.btn-secondary:focus-visible{color:#fff6e4;border-color:#ffb15a;box-shadow:0 0 20px rgba(255,154,26,.35)}
+.page-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 14px;margin-bottom:4px}
+.page-head h1{flex:1 1 12rem;margin:0}
 .url{display:flex;gap:6px;margin-top:6px}.url input{flex:1;min-width:0;background:#0d0716;color:#ffd08a;border:1px solid #5a2d6e;border-radius:10px;padding:10px;font-size:.9em}
 .url button{background:#5a2d6e;color:#fff;border:0;border-radius:10px;padding:0 14px;font-weight:600}
 details{margin-top:8px;color:#d9c6e6}summary{cursor:pointer;color:#ffc04d}input[type=file]{display:none}
@@ -30,7 +34,10 @@ box-shadow:0 0 14px 5px #ff9a1aaa;transform-origin:50% 100%;animation:light 1.05
 #version-notice{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#3a2412;color:#ffe1a8;border:1px solid #ffb15a;border-radius:999px;padding:8px 14px;font:600 14px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 24px #0008}
 @media (prefers-reduced-motion:reduce){.candle span{animation:none;opacity:1}}
 </style></head><body><main>
+<div class="page-head">
 <h1>🌼 Light a candle for your ancestors</h1>
+<a class="btn-secondary" id="browse-map" href="/">See the map →</a>
+</div>
 <button type="button" id="version-notice" hidden>Updated, refresh</button>
 <p>Every ancestor whose temple work was finished this past year becomes a glowing light on the big screen. It takes about a minute!</p>
 <div class="tabs">Showing steps for <b id="osname"></b> · <a href="#" data-os="ios">iPhone</a><a href="#" data-os="android">Android</a></div>
@@ -182,10 +189,20 @@ function api(path){
   const slug=groupSlug();
   return slug ? '/g/'+encodeURIComponent(slug)+'/api'+path : '/api'+path;
 }
+function mapPageHref(){
+  const slug=groupSlug();
+  return slug ? '/g/'+encodeURIComponent(slug)+'/map' : '/';
+}
+function applyMapLinks(){
+  const href=mapPageHref();
+  for(const id of ['see-map','browse-map']){
+    const el=document.getElementById(id);
+    if(el) el.href=href;
+  }
+}
+applyMapLinks();
 const shareSlug=groupSlug();
 if(shareSlug){
-  const see=document.getElementById('see-map');
-  if(see) see.href='/g/'+encodeURIComponent(shareSlug)+'/map';
   fetch(api('/group'),{cache:'no-store'}).then(response=>response.ok?response.json():null).then(group=>{
     if(!group) return;
     if(group.title) document.querySelector('h1').textContent=group.title;
