@@ -20,6 +20,7 @@
   const BLOOM_ALPHA = 1;
   const SPOT_OTHER = 0.3;
   const DIM_EASE_MS = 400;
+  const SPOT_COLOR_EASE_MS = 400;
 
   function flickerKeyframes(phase) {
     const p = phase % 1;
@@ -121,6 +122,46 @@
     ctx.shadowBlur = 0;
   }
 
+  /** Candle-flame / rose halo — distinct from marigold cluster lights. */
+  function paintSpotlightGlow(ctx, size) {
+    const r = size / 2;
+    const core = (CORE_PX / 58) * (size / 2);
+    ctx.clearRect(0, 0, size, size);
+    const g = ctx.createRadialGradient(r, r, 0, r, r, core * 1.2);
+    g.addColorStop(0, '#fffef9');
+    g.addColorStop(0.18, '#ffe8dc');
+    g.addColorStop(0.38, '#ff9a82');
+    g.addColorStop(0.55, '#e85d62');
+    g.addColorStop(0.72, 'rgba(210, 72, 88, 0.45)');
+    g.addColorStop(0.88, 'rgba(160, 48, 72, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(r, r, core * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = 'rgba(255, 220, 210, 0.95)';
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = 'rgba(255, 180, 160, 0.88)';
+    ctx.beginPath();
+    ctx.arc(r, r, core * 0.58, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 58;
+    ctx.shadowColor = 'rgba(232, 93, 98, 0.82)';
+    ctx.fillStyle = 'rgba(220, 80, 95, 0.55)';
+    ctx.beginPath();
+    ctx.arc(r, r, core * 0.44, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#fff8f4';
+    ctx.beginPath();
+    ctx.arc(r, r, core * 0.36, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.shadowBlur = 0;
+  }
+
   function layerDrawPoint(map, bounds, lat, lon) {
     const lp = map.latLngToLayerPoint([lat, lon]);
     return { x: lp.x - bounds.min.x, y: lp.y - bounds.min.y };
@@ -140,14 +181,26 @@
     state.active = { from: from, to: target, at: now };
   }
 
+  function spotColorLevel(now, state) {
+    return dimOthersLevel(now, state);
+  }
+
+  function beginSpotColorEase(state, target, now) {
+    const from = state.active ? spotColorLevel(now, state.active) : (target ? 0 : 1);
+    state.active = { from: from, to: target, at: now };
+  }
+
   function makeSprites(doc) {
     const normal = doc.createElement('canvas');
     const bloom = doc.createElement('canvas');
+    const spotlight = doc.createElement('canvas');
     normal.width = normal.height = SPRITE;
     bloom.width = bloom.height = SPRITE;
+    spotlight.width = spotlight.height = SPRITE;
     paintGlow(normal.getContext('2d'), SPRITE, false);
     paintGlow(bloom.getContext('2d'), SPRITE, true);
-    return { normal: normal, bloom: bloom };
+    paintSpotlightGlow(spotlight.getContext('2d'), SPRITE);
+    return { normal: normal, bloom: bloom, spotlight: spotlight };
   }
 
   function ensureLightsPane(map) {
@@ -198,6 +251,7 @@
     const lights = new Map();
     let bloomKey = null;
     const dimState = { active: null };
+    const spotColorState = { active: null };
     let spotlightDim = false;
     let raf = 0;
     let lastDraw = 0;
@@ -321,24 +375,62 @@
         this._ctx.clearRect(0, 0, size.x, size.y);
         this._ctx.globalCompositeOperation = 'screen';
         const pad = DISPLAY_BLOOM * 6;
+        const dimLevel = spotlightDim && bloomKey
+          ? dimOthersLevel(now, dimState.active)
+          : 1;
+        const spotMix = spotlightDim && bloomKey
+          ? spotColorLevel(now, spotColorState.active)
+          : 0;
+        let spotlightPass = null;
+
+        function drawLight(entry, point, opts) {
+          const featured = opts.featured;
+          const pop = popMultiplier(entry, now, reduced);
+          const flick = flickerOpacity(entry.seed, now, reduced);
+          const fade = fadeOpacity(entry.fadeAt, now, reduced);
+          const w = displaySize(featured, pop, reduced);
+          const tone = featured ? BLOOM_ALPHA : DRAW_ALPHA;
+          const dim = featured ? 1 : (spotlightDim && bloomKey ? dimLevel : 1);
+          const alpha = flick * fade * tone * dim;
+          if (alpha <= 0.01 || w <= 0.5) return;
+          if (featured && spotlightDim && bloomKey) {
+            const marigold = sprites.bloom;
+            const candle = sprites.spotlight;
+            const mix = spotMix;
+            if (mix <= 0.001) {
+              this._ctx.globalAlpha = alpha;
+              this._ctx.drawImage(marigold, point.x - w / 2, point.y - w / 2, w, w);
+              return;
+            }
+            if (mix >= 0.999) {
+              this._ctx.globalAlpha = alpha;
+              this._ctx.drawImage(candle, point.x - w / 2, point.y - w / 2, w, w);
+              return;
+            }
+            this._ctx.globalAlpha = alpha * (1 - mix);
+            this._ctx.drawImage(marigold, point.x - w / 2, point.y - w / 2, w, w);
+            this._ctx.globalAlpha = alpha * mix;
+            this._ctx.drawImage(candle, point.x - w / 2, point.y - w / 2, w, w);
+            return;
+          }
+          const sprite = featured ? sprites.bloom : sprites.normal;
+          this._ctx.globalAlpha = alpha;
+          this._ctx.drawImage(sprite, point.x - w / 2, point.y - w / 2, w, w);
+        }
+
         for (const entry of lights.values()) {
           if (!entry.visible) continue;
           const point = layerDrawPoint(this._map, this._bounds, entry.lat, entry.lon);
           if (point.x < -pad || point.y < -pad || point.x > size.x + pad || point.y > size.y + pad) continue;
-          const pop = popMultiplier(entry, now, reduced);
-          const flick = flickerOpacity(entry.seed, now, reduced);
-          const fade = fadeOpacity(entry.fadeAt, now, reduced);
-          const bloom = bloomKey === entry.key;
-          const w = displaySize(bloom, pop, reduced);
-          const tone = bloom ? BLOOM_ALPHA : DRAW_ALPHA;
-          const dim = spotlightDim && bloomKey && !bloom
-            ? dimOthersLevel(now, dimState.active)
-            : 1;
-          const alpha = flick * fade * tone * dim;
-          if (alpha <= 0.01 || w <= 0.5) continue;
-          const sprite = bloom ? sprites.bloom : sprites.normal;
-          this._ctx.globalAlpha = alpha;
-          this._ctx.drawImage(sprite, point.x - w / 2, point.y - w / 2, w, w);
+          const featured = bloomKey === entry.key;
+          if (featured && spotlightDim && bloomKey) {
+            spotlightPass = { entry: entry, point: point };
+            continue;
+          }
+          drawLight.call(this, entry, point, { featured: featured });
+        }
+        if (spotlightPass) {
+          drawLight.call(this, spotlightPass.entry, spotlightPass.point, { featured: true });
         }
         this._ctx.restore();
         this._ctx.globalAlpha = 1;
@@ -423,6 +515,7 @@
         bloomKey = null;
         spotlightDim = false;
         dimState.active = null;
+        spotColorState.active = null;
         if (renderer) renderer._updatePaths();
       },
       setBloom(key) {
@@ -434,6 +527,8 @@
         bloomKey = key || null;
         spotlightDim = !!key;
         beginDimEase(dimState, key ? SPOT_OTHER : 1, now);
+        if (key) spotColorState.active = { from: 0, to: 1, at: now };
+        else beginSpotColorEase(spotColorState, 0, now);
         if (renderer) renderer._updatePaths();
       },
       clearFade() {
@@ -493,7 +588,10 @@
     SPRITE: SPRITE,
     SPOT_OTHER: SPOT_OTHER,
     DIM_EASE_MS: DIM_EASE_MS,
+    SPOT_COLOR_EASE_MS: SPOT_COLOR_EASE_MS,
     dimOthersLevel: dimOthersLevel,
+    spotColorLevel: spotColorLevel,
+    beginSpotColorEase: beginSpotColorEase,
     flickerOpacity: flickerOpacity,
     popScale: popScale,
     fadeOpacity: fadeOpacity,
@@ -501,6 +599,7 @@
     displaySize: displaySize,
     layerDrawPoint: layerDrawPoint,
     paintGlow: paintGlow,
+    paintSpotlightGlow: paintSpotlightGlow,
     ensureLightsPane: ensureLightsPane,
     throttle: throttle,
     attachCountryRepaint: attachCountryRepaint,
