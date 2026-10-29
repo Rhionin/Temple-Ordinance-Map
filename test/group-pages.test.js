@@ -115,7 +115,11 @@ test('the share page, the group map, and /new are served, and an unknown slug is
     assert.equal(created.status, 200);
     assert.match(await created.text(), /Start a group/);
     assert.equal(party.status, 200);
-    assert.match(await party.text(), /Choose my list/);
+    const partyHtml = await party.text();
+    assert.match(partyHtml, /Choose my list/);
+    assert.match(partyHtml, /id="browse-map"/);
+    assert.match(partyHtml, /See the map →/);
+    assert.match(partyHtml, /id="see-map" href="\/"/);
     assert.equal(map.status, 200);
     assert.match(await map.text(), /leaflet.js/);
     assert.equal(admin.status, 200);
