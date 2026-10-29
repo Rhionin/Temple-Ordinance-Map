@@ -3,12 +3,14 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test test/",
+    "bench:map": "node scripts/map-perf-bench.mjs after",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply temple-ordinance-map --local",
     "db:migrate:remote": "wrangler d1 migrations apply temple-ordinance-map --remote"
   },
   "devDependencies": {
+    "playwright": "^1.49.1",
     "wrangler": "^4.149.0"
   }
 }

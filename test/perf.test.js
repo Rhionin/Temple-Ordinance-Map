@@ -128,8 +128,8 @@ test('heap and rendered lights are read only from what the browser actually has'
   assert.equal(readHeap({ memory: {} }), null);
   assert.equal(readHeap({ memory: { usedJSHeapSize: 12345678 } }), 12345678);
   assert.equal(countRendered(null), 0);
-  assert.equal(countRendered([{ marker: {} }, { marker: null }, {}, null]), 1);
-  assert.equal(countRendered(new Map([['a', { marker: 1 }], ['b', { marker: null }]]).values()), 1);
+  assert.equal(countRendered([{ marker: {} }, { marker: null }, { shown: true }, {}, null]), 2);
+  assert.equal(countRendered(new Map([['a', { marker: 1 }], ['b', { shown: true }], ['c', { marker: null }]]).values()), 2);
 
   const withHeap = {
     fps: 59.5, fpsMin: 40, fpsAvg: 55.5, longFrames: 2, longTasks: 1,
