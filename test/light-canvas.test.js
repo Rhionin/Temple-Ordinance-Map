@@ -53,6 +53,10 @@ test('the TV page draws lights on one canvas layer and throttles country paint',
   const tv = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
   assert.match(tv, /light-canvas\.js/);
   assert.match(tv, /LightCanvas\.createLayer/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /L\.Renderer\.extend/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /layerDrawPoint/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /layerDrawPoint/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'public', 'light-canvas.js'), 'utf8'), /L\.DomUtil\.setPosition\(this\._container/);
   assert.match(tv, /LightCanvas\.attachCountryRepaint/);
   assert.match(tv, /leaflet-lightsPane-pane/);
   assert.equal(LIGHTS_PANE, 'lightsPane');
