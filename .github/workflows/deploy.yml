@@ -24,8 +24,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
-      - name: Unit tests (skip Playwright align; no Chromium on deploy)
-        run: node --test test/ --test-skip-pattern='light canvas stays aligned'
+      - run: node --test test/
       - name: Seed D1 migration history
         id: d1_seed
         continue-on-error: true
