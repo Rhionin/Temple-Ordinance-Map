@@ -30,6 +30,16 @@ test('deploy workflow tests, migrates, then deploys without calling reset', () =
   const apply = yml.indexOf('wrangler d1 migrations apply temple-ordinance-map --remote');
   const deploy = yml.indexOf('wrangler deploy');
   assert.ok(seed > 0 && apply > seed && deploy > apply);
+  assert.match(yml, /continue-on-error: true/);
+  assert.match(yml, /D1 migration summary/);
   assert.doesNotMatch(yml, /\/api\/reset/);
   assert.doesNotMatch(yml, /RESET_TOKEN/);
+});
+
+test('poll index migration 0007 is optional and needs no app code dependency', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', '0007_poll_indexes.sql'), 'utf8');
+  assert.match(sql, /CREATE INDEX IF NOT EXISTS/);
+  assert.doesNotMatch(sql, /DROP TABLE|ALTER TABLE|NOT NULL/i);
+  const poll = fs.readFileSync(path.join(__dirname, '..', 'lib', 'poll-cache.js'), 'utf8');
+  assert.doesNotMatch(poll, /0007_poll_indexes/);
 });
